@@ -14,18 +14,20 @@
 
 
 <link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="/lib/pace/pace-theme-minimal.min.css">
+  <script src="/lib/pace/pace.min.js"></script>
 
 <script id="hexo-configurations">
     var NexT = window.NexT || {};
     var CONFIG = {"hostname":"wm920.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta name="description" content="��֮���ң�ʧ֮����">
+  <meta name="description" content="坚持就是胜利">
 <meta property="og:type" content="website">
-<meta property="og:title" content="�����ĸ��˲���">
+<meta property="og:title" content="王敏的博客">
 <meta property="og:url" content="http://wm920.github.io/archives/2021/05/index.html">
-<meta property="og:site_name" content="�����ĸ��˲���">
-<meta property="og:description" content="��֮���ң�ʧ֮����">
+<meta property="og:site_name" content="王敏的博客">
+<meta property="og:description" content="坚持就是胜利">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:author" content="Min Wang">
 <meta name="twitter:card" content="summary">
@@ -43,7 +45,7 @@
   };
 </script>
 
-  <title>归档 | �����ĸ��˲���</title>
+  <title>归档 | 王敏的博客</title>
   
 
 
@@ -94,7 +96,7 @@
 
     <a href="/" class="brand" rel="start">
       <span class="logo-line-before"><i></i></span>
-      <h1 class="site-title">�����ĸ��˲���</h1>
+      <h1 class="site-title">王敏的博客</h1>
       <span class="logo-line-after"><i></i></span>
     </a>
   </div>
@@ -115,9 +117,29 @@
     <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
 
   </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">0</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">0</span></a>
+
+  </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">1</span></a>
+
+  </li>
+        <li class="menu-item menu-item-resources">
+
+    <a href="/resources/" rel="section"><i class="download fa-fw"></i>资源</a>
 
   </li>
   </ul>
@@ -242,8 +264,10 @@
 
       <div class="site-overview-wrap sidebar-panel">
         <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Min Wang"
+      src="/images/cat.jpg">
   <p class="site-author-name" itemprop="name">Min Wang</p>
-  <div class="site-description" itemprop="description">��֮���ң�ʧ֮����</div>
+  <div class="site-description" itemprop="description">坚持就是胜利</div>
 </div>
 <div class="site-state-wrap motion-element">
   <nav class="site-state">
@@ -287,6 +311,11 @@
   <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
+<div class="theme-info">
+  <div class="powered-by"></div>
+  <span class="post-count">博客全站共75字</span>
+</div>
+
         
 
 
@@ -301,6 +330,8 @@
   </div>
 
   
+  
+  <script color='0,0,255' opacity='0.5' zIndex='-1' count='99' src="/lib/canvas-nest/canvas-nest.min.js"></script>
   <script src="/lib/anime.min.js"></script>
   <script src="/lib/velocity/velocity.min.js"></script>
   <script src="/lib/velocity/velocity.ui.min.js"></script>
@@ -316,6 +347,7 @@
 <script src="/js/next-boot.js"></script>
 
 
+  <script defer src="/lib/three/three.min.js"></script>
 
 
   
