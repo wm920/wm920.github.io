@@ -1,4 +1,4 @@
-baseURL = "https://min920.github.io/"
+baseURL = "https://wm920.github.io/"
 languageCode = "zh-CN"
 title = "Min的博客"
 theme = "PaperMod"
@@ -30,7 +30,7 @@ pagerSize = 10
 
   [[params.socialIcons]]
     name = "github"
-    url = "https://github.com/min920"
+    url = "https://github.com/wm920"
 
   [params.math]
     enable = true
