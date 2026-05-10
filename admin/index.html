@@ -121,6 +121,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
         <option value="学习笔记/ddr">学习笔记 / DDR</option>
         <option value="学习笔记/pcie">学习笔记 / PCIe</option>
         <option value="学习笔记/rdma">学习笔记 / RDMA</option>
+        <option value="学习笔记/ai-tools">学习笔记 / AI 工具</option>
         <option value="读书笔记">读书笔记</option>
         <option value="日记">日记</option>
       </select>
@@ -263,7 +264,7 @@ async function publish() {
 async function loadPosts() {
   document.getElementById('posts-modal').style.display = 'flex';
   document.getElementById('posts-list').innerHTML = '<p style="color:#999;font-size:.85rem">加载中...</p>';
-  const sections = ['学习笔记/flexnoc','学习笔记/ddr','学习笔记/pcie','学习笔记/rdma','读书笔记','日记'];
+  const sections = ['学习笔记/flexnoc','学习笔记/ddr','学习笔记/pcie','学习笔记/rdma','学习笔记/ai-tools','读书笔记','日记'];
   let html = '';
   for (const sec of sections) {
     const res = await ghAPI(`/repos/${REPO}/contents/content/${encodeURIComponent(sec)}`);
