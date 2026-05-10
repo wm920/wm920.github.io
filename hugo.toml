@@ -24,9 +24,8 @@ pagerSize = 10
   TocOpen = false
   ShowWordCount = true
 
-  [params.homeInfoParams]
-    Title = "Hi, I'm Min"
-    Content = "这里记录我的技术学习笔记与教程，欢迎交流。"
+  homeTitle = "Min 的博客"
+  homeSubtitle = "记录技术学习笔记、读书思考与日常"
 
   [[params.socialIcons]]
     name = "github"

@@ -1,0 +1,45 @@
+{{- define "main" }}
+<div class="home-hero">
+  <h1 class="home-title">{{ .Site.Params.homeTitle | default .Site.Title }}</h1>
+  <p class="home-subtitle">{{ .Site.Params.homeSubtitle | default .Site.Params.description }}</p>
+</div>
+
+<div class="category-grid">
+  {{ $categories := slice
+    (dict "name" "学习笔记" "slug" "学习笔记" "icon" "📚" "desc" "技术总结、算法、工具使用记录")
+    (dict "name" "读书笔记" "slug" "读书笔记" "icon" "📖" "desc" "书评、摘录与思考")
+    (dict "name" "日记"     "slug" "日记"     "icon" "✏️" "desc" "日常记录与感悟")
+  }}
+
+  {{ range $categories }}
+    {{ $term := . }}
+    {{ $count := 0 }}
+    {{ with index $.Site.Taxonomies.categories $term.slug }}
+      {{ $count = len . }}
+    {{ end }}
+    <a href="/categories/{{ $term.slug | urlize }}/" class="category-card">
+      <div class="card-icon">{{ $term.icon }}</div>
+      <div class="card-body">
+        <h2 class="card-title">{{ $term.name }}</h2>
+        <p class="card-desc">{{ $term.desc }}</p>
+        <span class="card-count">{{ $count }} 篇文章</span>
+      </div>
+    </a>
+  {{ end }}
+</div>
+
+<div class="recent-posts">
+  <h2 class="section-title">最近更新</h2>
+  <ul class="post-list">
+    {{ range first 5 .Site.RegularPages.ByDate.Reverse }}
+    <li class="post-item">
+      <span class="post-date">{{ .Date.Format "2006-01-02" }}</span>
+      <a href="{{ .Permalink }}" class="post-link">{{ .Title }}</a>
+      {{ with .Params.categories }}
+        <span class="post-category">{{ index . 0 }}</span>
+      {{ end }}
+    </li>
+    {{ end }}
+  </ul>
+</div>
+{{- end }}

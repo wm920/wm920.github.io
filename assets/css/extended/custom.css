@@ -1,0 +1,114 @@
+/* ===== 首页英雄区 ===== */
+.home-hero {
+  text-align: center;
+  padding: 3rem 1rem 2rem;
+}
+.home-title {
+  font-size: 2.2rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+.home-subtitle {
+  color: var(--secondary);
+  font-size: 1.05rem;
+}
+
+/* ===== 分类卡片网格 ===== */
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.4rem;
+  margin: 2rem 0 3rem;
+}
+
+.category-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2rem 1.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--entry);
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.category-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  text-decoration: none;
+}
+
+.card-icon {
+  font-size: 2.8rem;
+  margin-bottom: 1rem;
+  line-height: 1;
+}
+.card-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  border: none;
+  padding: 0;
+}
+.card-desc {
+  font-size: 0.88rem;
+  color: var(--secondary);
+  margin: 0 0 0.8rem;
+  line-height: 1.5;
+}
+.card-count {
+  font-size: 0.82rem;
+  color: var(--secondary);
+  background: var(--code-bg);
+  padding: 0.2rem 0.7rem;
+  border-radius: 20px;
+}
+
+/* ===== 最近更新列表 ===== */
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+}
+.post-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.post-item {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.95rem;
+}
+.post-date {
+  color: var(--secondary);
+  font-size: 0.82rem;
+  white-space: nowrap;
+  min-width: 88px;
+}
+.post-link {
+  flex: 1;
+  color: inherit;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.post-link:hover {
+  color: var(--primary);
+}
+.post-category {
+  font-size: 0.75rem;
+  color: var(--secondary);
+  background: var(--code-bg);
+  padding: 0.15rem 0.6rem;
+  border-radius: 20px;
+  white-space: nowrap;
+}

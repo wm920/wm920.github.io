@@ -3,7 +3,7 @@ title: "第一篇文章：博客搭建记录"
 date: 2026-05-10
 draft: false
 tags: ["Hugo", "博客"]
-categories: ["折腾记录"]
+categories: ["学习笔记"]
 description: "使用 Hugo + PaperMod + GitHub Pages 搭建个人博客的完整过程。"
 ---
 
