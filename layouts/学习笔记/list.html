@@ -12,8 +12,9 @@
     (dict "name" "RDMA"    "slug" "rdma"    "icon" "🌐" "desc" "远程直接内存访问协议")
   }}
   {{ range $topics }}
-  {{ $section := printf "学习笔记/%s" .slug }}
-  {{ $pages := where $.Site.RegularPages "Section" $section }}
+  {{ $sectionPage := $.Site.GetPage (printf "学习笔记/%s" .slug) }}
+  {{ $pages := slice }}
+  {{ if $sectionPage }}{{ $pages = $sectionPage.Pages }}{{ end }}
   <a href="/学习笔记/{{ .slug }}/" class="subtopic-card">
     <div class="subtopic-icon">{{ .icon }}</div>
     <div class="subtopic-body">

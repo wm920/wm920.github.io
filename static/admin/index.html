@@ -324,8 +324,21 @@ function toast(msg) {
 }
 
 // ── Init ──
+const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
 const saved = localStorage.getItem('blog_token');
-if (saved) { TOKEN = saved; showApp(); }
+if (saved) { TOKEN = saved; }
+if (isLocal) {
+  showApp();
+  // 顶部插入本地 token 输入栏
+  document.querySelector('.topbar').insertAdjacentHTML('afterbegin',
+    `<span style="background:#f59e0b;color:#fff;font-size:.72rem;padding:.2rem .6rem;border-radius:20px;white-space:nowrap">本地模式</span>
+     <input type="password" id="local-token" placeholder="粘贴 Token 即可发布" value="${saved||''}"
+       style="padding:.3rem .7rem;border:1.5px solid #e0e0e0;border-radius:6px;font-size:.8rem;width:220px;outline:none"
+       oninput="TOKEN=this.value;localStorage.setItem('blog_token',this.value)" />`
+  );
+} else if (saved) {
+  showApp();
+}
 </script>
 </body>
 </html>
