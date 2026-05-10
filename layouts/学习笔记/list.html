@@ -10,6 +10,7 @@
     (dict "name" "DDR"     "slug" "ddr"     "icon" "💾" "desc" "内存协议与时序规范")
     (dict "name" "PCIe"    "slug" "pcie"    "icon" "⚡" "desc" "高速串行总线规范")
     (dict "name" "RDMA"    "slug" "rdma"    "icon" "🌐" "desc" "远程直接内存访问协议")
+    (dict "name" "AI 工具"  "slug" "ai-tools" "icon" "🤖" "desc" "AI 助手与 Code Agent 使用技巧")
   }}
   {{ range $topics }}
   {{ $sectionPage := $.Site.GetPage (printf "学习笔记/%s" .slug) }}
