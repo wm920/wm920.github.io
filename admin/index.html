@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>博客编辑器 · Min的博客</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f8f9fa; --surface: #fff; --border: #e0e0e0;
+  --primary: #6366f1; --text: #1a1a1a; --muted: #666;
+  --radius: 8px; --shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* ── Login ── */
+#login-screen {
+  display: flex; align-items: center; justify-content: center; min-height: 100vh;
+}
+.login-card {
+  background: var(--surface); border-radius: 16px; padding: 2.5rem;
+  box-shadow: var(--shadow); width: 360px; text-align: center;
+}
+.login-card h1 { font-size: 1.4rem; margin-bottom: 0.4rem; }
+.login-card p  { color: var(--muted); font-size: 0.88rem; margin-bottom: 1.5rem; }
+.login-card input {
+  width: 100%; padding: 0.7rem 1rem; border: 1.5px solid var(--border);
+  border-radius: var(--radius); font-size: 0.9rem; margin-bottom: 0.8rem;
+  outline: none; transition: border-color 0.2s;
+}
+.login-card input:focus { border-color: var(--primary); }
+.btn {
+  display: inline-block; padding: 0.65rem 1.4rem; border-radius: var(--radius);
+  border: none; cursor: pointer; font-size: 0.9rem; font-weight: 500;
+  transition: opacity 0.15s, transform 0.15s; text-decoration: none;
+}
+.btn:hover { opacity: 0.88; transform: translateY(-1px); }
+.btn-primary { background: var(--primary); color: #fff; width: 100%; }
+.btn-outline  { background: transparent; border: 1.5px solid var(--border); color: var(--text); }
+.btn-danger   { background: #ef4444; color: #fff; }
+
+/* ── App Shell ── */
+#app { display: none; flex-direction: column; height: 100vh; }
+.topbar {
+  display: flex; align-items: center; gap: 1rem; padding: 0.6rem 1.2rem;
+  background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.topbar h1 { font-size: 1rem; font-weight: 600; flex: 1; }
+.topbar select, .topbar input[type=text] {
+  padding: 0.4rem 0.7rem; border: 1.5px solid var(--border); border-radius: var(--radius);
+  font-size: 0.85rem; outline: none; background: var(--bg);
+}
+.topbar select:focus, .topbar input:focus { border-color: var(--primary); }
+
+/* ── Frontmatter bar ── */
+.meta-bar {
+  display: flex; gap: 0.8rem; flex-wrap: wrap; align-items: center;
+  padding: 0.5rem 1.2rem; background: #f1f3f9; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.meta-bar label { font-size: 0.78rem; color: var(--muted); margin-right: 0.2rem; }
+.meta-bar input {
+  padding: 0.3rem 0.6rem; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 0.82rem; outline: none; background: var(--surface);
+}
+.meta-bar input:focus { border-color: var(--primary); }
+
+/* ── Editor ── */
+.editor-area {
+  display: flex; flex: 1; overflow: hidden;
+}
+#editor {
+  flex: 1; padding: 1.2rem 1.4rem; font-family: "Fira Code", "Consolas", monospace;
+  font-size: 0.9rem; line-height: 1.7; border: none; resize: none; outline: none;
+  background: var(--surface); color: var(--text); border-right: 1px solid var(--border);
+}
+#preview {
+  flex: 1; padding: 1.4rem 2rem; overflow-y: auto;
+  font-size: 0.95rem; line-height: 1.8; background: var(--bg);
+}
+/* Preview typography */
+#preview h1,#preview h2,#preview h3 { margin: 1.2em 0 0.5em; font-weight: 600; }
+#preview p  { margin: 0 0 1em; }
+#preview pre { background: #1e1e2e; color: #cdd6f4; padding: 1rem; border-radius: 8px; overflow-x: auto; margin: 1em 0; }
+#preview code { font-family: "Fira Code", monospace; font-size: 0.85em; }
+#preview p code { background: #e8e8f0; padding: 0.1em 0.4em; border-radius: 4px; }
+#preview img  { max-width: 100%; border-radius: 8px; margin: 0.5em 0; }
+#preview blockquote { border-left: 3px solid var(--primary); padding-left: 1rem; color: var(--muted); margin: 1em 0; }
+
+/* ── Toast ── */
+#toast {
+  position: fixed; bottom: 1.5rem; right: 1.5rem; padding: 0.7rem 1.2rem;
+  background: #1a1a2e; color: #fff; border-radius: 8px; font-size: 0.85rem;
+  opacity: 0; transform: translateY(8px); transition: all 0.25s; pointer-events: none; z-index: 999;
+}
+#toast.show { opacity: 1; transform: translateY(0); }
+
+/* Image paste indicator */
+.paste-hint { font-size: 0.75rem; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login-screen">
+  <div class="login-card">
+    <h1>📝 博客编辑器</h1>
+    <p>使用 GitHub Token 登录（需要 repo + workflow 权限）</p>
+    <input type="password" id="token-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" />
+    <button class="btn btn-primary" onclick="login()">登录</button>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app">
+  <div class="topbar">
+    <h1>📝 博客编辑器</h1>
+    <label>分类
+      <select id="section-select">
+        <option value="学习笔记/flexnoc">学习笔记 / FlexNOC</option>
+        <option value="学习笔记/ddr">学习笔记 / DDR</option>
+        <option value="学习笔记/pcie">学习笔记 / PCIe</option>
+        <option value="学习笔记/rdma">学习笔记 / RDMA</option>
+        <option value="读书笔记">读书笔记</option>
+        <option value="日记">日记</option>
+      </select>
+    </label>
+    <span class="paste-hint">💡 可直接粘贴图片</span>
+    <button class="btn btn-outline" onclick="loadPosts()">文章列表</button>
+    <button class="btn btn-primary" onclick="publish()">发布</button>
+    <button class="btn btn-outline" onclick="logout()">退出</button>
+  </div>
+
+  <div class="meta-bar">
+    <label>标题 <input type="text" id="post-title" placeholder="文章标题" style="width:260px"/></label>
+    <label>标签 <input type="text" id="post-tags" placeholder="tag1, tag2" style="width:180px"/></label>
+    <label>日期 <input type="date" id="post-date" /></label>
+    <label>文件名 <input type="text" id="post-slug" placeholder="自动生成" style="width:180px"/></label>
+  </div>
+
+  <div class="editor-area">
+    <textarea id="editor" placeholder="用 Markdown 写作，支持粘贴图片..."></textarea>
+    <div id="preview"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- Posts Modal -->
+<div id="posts-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:100;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:1.5rem;width:560px;max-height:80vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <h2 style="font-size:1.1rem;">文章列表</h2>
+      <button class="btn btn-outline" style="padding:0.3rem 0.8rem" onclick="document.getElementById('posts-modal').style.display='none'">关闭</button>
+    </div>
+    <div id="posts-list"></div>
+  </div>
+</div>
+
+<script>
+const REPO = 'wm920/wm920.github.io';
+const BRANCH = 'main';
+let TOKEN = '';
+
+// ── Auth ──
+function login() {
+  const t = document.getElementById('token-input').value.trim();
+  if (!t) return toast('请输入 Token');
+  TOKEN = t;
+  localStorage.setItem('blog_token', t);
+  showApp();
+}
+function logout() {
+  localStorage.removeItem('blog_token');
+  TOKEN = ''; location.reload();
+}
+function showApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('post-date').value = new Date().toISOString().slice(0,10);
+}
+
+// ── API helper ──
+async function ghAPI(path, method='GET', body=null) {
+  const res = await fetch(`https://api.github.com${path}`, {
+    method,
+    headers: { Authorization: `token ${TOKEN}`, 'Content-Type': 'application/json', Accept: 'application/vnd.github.v3+json' },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if (method === 'DELETE' && res.status === 204) return {};
+  return res.json();
+}
+
+// ── Live preview ──
+const editor = document.getElementById('editor');
+const preview = document.getElementById('preview');
+editor.addEventListener('input', () => { preview.innerHTML = marked.parse(editor.value); });
+
+// ── Paste image ──
+editor.addEventListener('paste', async e => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      e.preventDefault();
+      const file = item.getAsFile();
+      toast('⏳ 上传图片中...');
+      const url = await uploadImage(file);
+      if (url) insertAtCursor(`![图片](${url})\n`);
+      break;
+    }
+  }
+});
+
+async function uploadImage(file) {
+  const reader = new FileReader();
+  const b64 = await new Promise(r => { reader.onload = e => r(e.target.result.split(',')[1]); reader.readAsDataURL(file); });
+  const fname = `images/${Date.now()}-${file.name.replace(/\s/g,'_')}`;
+  const res = await ghAPI(`/repos/${REPO}/contents/static/${fname}`, 'PUT', {
+    message: `upload: ${fname}`, content: b64, branch: BRANCH
+  });
+  if (res.content) { toast('✅ 图片上传成功'); return `/${fname}`; }
+  toast('❌ 图片上传失败'); return null;
+}
+
+function insertAtCursor(text) {
+  const s = editor.selectionStart, e2 = editor.selectionEnd;
+  editor.value = editor.value.slice(0,s) + text + editor.value.slice(e2);
+  editor.selectionStart = editor.selectionEnd = s + text.length;
+  preview.innerHTML = marked.parse(editor.value);
+}
+
+// ── Publish ──
+async function publish() {
+  const title = document.getElementById('post-title').value.trim();
+  const tags  = document.getElementById('post-tags').value.trim();
+  const date  = document.getElementById('post-date').value;
+  const section = document.getElementById('section-select').value;
+  const body  = editor.value;
+  if (!title) return toast('请填写标题');
+  if (!body.trim()) return toast('内容不能为空');
+
+  const slug = document.getElementById('post-slug').value.trim() || slugify(title);
+  const tagsYaml = tags ? tags.split(',').map(t=>`"${t.trim()}"`).join(', ') : '';
+  const frontmatter = `---\ntitle: "${title}"\ndate: ${date}\ndraft: false\n${tagsYaml ? `tags: [${tagsYaml}]\n` : ''}---\n\n`;
+  const content = btoa(unescape(encodeURIComponent(frontmatter + body)));
+  const path = `/repos/${REPO}/contents/content/${section}/${slug}.md`;
+
+  // Check if file exists (for update)
+  let sha = undefined;
+  const existing = await ghAPI(path);
+  if (existing.sha) sha = existing.sha;
+
+  toast('⏳ 发布中...');
+  const res = await ghAPI(path, 'PUT', {
+    message: `post: ${title}`, content, branch: BRANCH, ...(sha ? {sha} : {})
+  });
+  if (res.content) { toast('🎉 发布成功！约1分钟后上线'); }
+  else toast('❌ 发布失败：' + (res.message || '未知错误'));
+}
+
+// ── Post list ──
+async function loadPosts() {
+  document.getElementById('posts-modal').style.display = 'flex';
+  document.getElementById('posts-list').innerHTML = '<p style="color:#999;font-size:.85rem">加载中...</p>';
+  const sections = ['学习笔记/flexnoc','学习笔记/ddr','学习笔记/pcie','学习笔记/rdma','读书笔记','日记'];
+  let html = '';
+  for (const sec of sections) {
+    const res = await ghAPI(`/repos/${REPO}/contents/content/${encodeURIComponent(sec)}`);
+    const files = Array.isArray(res) ? res.filter(f => f.name.endsWith('.md') && f.name !== '_index.md') : [];
+    if (!files.length) continue;
+    html += `<div style="margin-bottom:1rem"><div style="font-size:.78rem;color:#999;font-weight:600;margin-bottom:.4rem;text-transform:uppercase">${sec}</div>`;
+    for (const f of files) {
+      html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:.4rem 0;border-bottom:1px solid #f0f0f0">
+        <span style="font-size:.88rem">${f.name.replace('.md','')}</span>
+        <div style="display:flex;gap:.4rem">
+          <button class="btn btn-outline" style="padding:.2rem .6rem;font-size:.75rem" onclick="loadPost('${sec}','${f.name}','${f.sha}')">编辑</button>
+          <button class="btn btn-danger" style="padding:.2rem .6rem;font-size:.75rem" onclick="deletePost('${sec}','${f.name}','${f.sha}')">删除</button>
+        </div>
+      </div>`;
+    }
+    html += '</div>';
+  }
+  document.getElementById('posts-list').innerHTML = html || '<p style="color:#999;font-size:.85rem">暂无文章</p>';
+}
+
+async function loadPost(section, filename, sha) {
+  const res = await ghAPI(`/repos/${REPO}/contents/content/${encodeURIComponent(section)}/${filename}`);
+  const raw = decodeURIComponent(escape(atob(res.content.replace(/\n/g,''))));
+  // Parse frontmatter
+  const fm = raw.match(/^---\n([\s\S]*?)\n---\n\n?([\s\S]*)$/);
+  if (fm) {
+    const meta = fm[1];
+    const body = fm[2];
+    document.getElementById('post-title').value = (meta.match(/title: "?([^"\n]+)"?/) || [])[1] || '';
+    document.getElementById('post-date').value  = (meta.match(/date: (\S+)/) || [])[1] || '';
+    document.getElementById('post-tags').value  = ((meta.match(/tags: \[([^\]]*)\]/) || [])[1] || '').replace(/"/g,'');
+    document.getElementById('post-slug').value  = filename.replace('.md','');
+    document.getElementById('section-select').value = section;
+    editor.value = body;
+    preview.innerHTML = marked.parse(body);
+  }
+  document.getElementById('posts-modal').style.display = 'none';
+  toast('文章已加载，可以编辑');
+}
+
+async function deletePost(section, filename, sha) {
+  if (!confirm(`确认删除 ${filename}？`)) return;
+  const res = await ghAPI(`/repos/${REPO}/contents/content/${encodeURIComponent(section)}/${filename}`, 'DELETE', {
+    message: `delete: ${filename}`, sha, branch: BRANCH
+  });
+  toast('已删除');
+  loadPosts();
+}
+
+// ── Utils ──
+function slugify(str) {
+  return str.trim().toLowerCase().replace(/[\s\/\\]+/g,'-').replace(/[^\w\-\u4e00-\u9fff]/g,'').slice(0,60) || `post-${Date.now()}`;
+}
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ── Init ──
+const saved = localStorage.getItem('blog_token');
+if (saved) { TOKEN = saved; showApp(); }
+</script>
+</body>
+</html>
