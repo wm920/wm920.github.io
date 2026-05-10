@@ -1,0 +1,67 @@
+baseURL = "https://min920.github.io/"
+languageCode = "zh-CN"
+title = "Min的博客"
+theme = "PaperMod"
+enableRobotsTXT = true
+buildDrafts = false
+buildFuture = false
+
+[pagination]
+pagerSize = 10
+
+[params]
+  env = "production"
+  title = "Min的博客"
+  description = "技术学习笔记与教程"
+  author = "Min"
+  defaultTheme = "auto"
+  ShowReadingTime = true
+  ShowShareButtons = false
+  ShowPostNavLinks = true
+  ShowBreadCrumbs = true
+  ShowCodeCopyButtons = true
+  ShowToc = true
+  TocOpen = false
+  ShowWordCount = true
+
+  [params.homeInfoParams]
+    Title = "Hi, I'm Min"
+    Content = "这里记录我的技术学习笔记与教程，欢迎交流。"
+
+  [[params.socialIcons]]
+    name = "github"
+    url = "https://github.com/min920"
+
+  [params.math]
+    enable = true
+
+[markup]
+  [markup.highlight]
+    codeFences = true
+    guessSyntax = true
+    lineNos = true
+    lineNumbersInTable = true
+    style = "monokai"
+
+  [markup.goldmark.renderer]
+    unsafe = true
+
+[outputs]
+  home = ["HTML", "RSS", "JSON"]
+
+[menu]
+  [[menu.main]]
+    identifier = "posts"
+    name = "文章"
+    url = "/posts/"
+    weight = 1
+  [[menu.main]]
+    identifier = "tags"
+    name = "标签"
+    url = "/tags/"
+    weight = 2
+  [[menu.main]]
+    identifier = "search"
+    name = "搜索"
+    url = "/search/"
+    weight = 3
