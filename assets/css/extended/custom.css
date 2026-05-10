@@ -1,114 +1,141 @@
 /* ===== 首页英雄区 ===== */
 .home-hero {
   text-align: center;
-  padding: 3rem 1rem 2rem;
+  padding: 3.5rem 1rem 2.5rem;
+}
+.hero-avatar {
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 72px;
+  margin: 0 auto 1.2rem;
+  box-shadow: 0 4px 20px rgba(99,102,241,0.35);
 }
 .home-title {
-  font-size: 2.2rem;
+  font-size: 2rem;
   font-weight: 700;
-  margin-bottom: 0.5rem;
+  margin: 0 0 0.5rem;
+  letter-spacing: -0.5px;
 }
 .home-subtitle {
   color: var(--secondary);
-  font-size: 1.05rem;
+  font-size: 1rem;
+  margin: 0;
 }
 
 /* ===== 分类卡片网格 ===== */
 .category-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1.4rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.2rem;
   margin: 2rem 0 3rem;
 }
-
 .category-card {
+  position: relative;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  text-align: center;
-  padding: 2rem 1.5rem;
-  border-radius: 12px;
+  gap: 1rem;
+  padding: 1.4rem 1.5rem;
+  border-radius: 14px;
+  border: 1.5px solid transparent;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.2s, box-shadow 0.2s;
+  overflow: hidden;
+}
+.category-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  opacity: 0.08;
+  transition: opacity 0.2s;
+}
+.category-card:hover { transform: translateY(-3px); text-decoration: none; }
+.category-card:hover::before { opacity: 0.15; }
+
+/* 蓝色 - 学习笔记 */
+.card-blue { border-color: #6366f1; box-shadow: 0 2px 12px rgba(99,102,241,0.1); }
+.card-blue::before { background: #6366f1; }
+.card-blue:hover { box-shadow: 0 8px 24px rgba(99,102,241,0.18); }
+.card-blue .card-icon { color: #6366f1; }
+
+/* 绿色 - 读书笔记 */
+.card-green { border-color: #10b981; box-shadow: 0 2px 12px rgba(16,185,129,0.1); }
+.card-green::before { background: #10b981; }
+.card-green:hover { box-shadow: 0 8px 24px rgba(16,185,129,0.18); }
+.card-green .card-icon { color: #10b981; }
+
+/* 橙色 - 日记 */
+.card-orange { border-color: #f59e0b; box-shadow: 0 2px 12px rgba(245,158,11,0.1); }
+.card-orange::before { background: #f59e0b; }
+.card-orange:hover { box-shadow: 0 8px 24px rgba(245,158,11,0.18); }
+.card-orange .card-icon { color: #f59e0b; }
+
+.card-icon { font-size: 2rem; flex-shrink: 0; }
+.card-body { flex: 1; }
+.card-title { font-size: 1.1rem; font-weight: 600; margin: 0 0 0.3rem; border: none; padding: 0; }
+.card-desc  { font-size: 0.82rem; color: var(--secondary); margin: 0; line-height: 1.5; }
+.card-arrow { font-size: 1.1rem; color: var(--secondary); flex-shrink: 0; opacity: 0.5; transition: opacity 0.2s, transform 0.2s; }
+.category-card:hover .card-arrow { opacity: 1; transform: translateX(4px); }
+
+/* ===== 学习笔记子分类网格 ===== */
+.section-hero {
+  padding: 2rem 0 1.5rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2rem;
+}
+.section-hero h1 { margin: 0 0 0.3rem; font-size: 1.6rem; }
+.section-hero p  { color: var(--secondary); margin: 0; }
+
+.subtopic-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.subtopic-card {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1.1rem 1.2rem;
+  border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--entry);
   text-decoration: none;
   color: inherit;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.18s, box-shadow 0.18s;
 }
-.category-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-  text-decoration: none;
-}
+.subtopic-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.1); text-decoration: none; }
+.subtopic-icon { font-size: 1.6rem; flex-shrink: 0; }
+.subtopic-body h3 { font-size: 0.95rem; font-weight: 600; margin: 0 0 0.2rem; }
+.subtopic-body p  { font-size: 0.78rem; color: var(--secondary); margin: 0 0 0.3rem; line-height: 1.4; }
+.subtopic-count   { font-size: 0.72rem; color: var(--secondary); background: var(--code-bg); padding: 0.1rem 0.5rem; border-radius: 20px; }
 
-.card-icon {
-  font-size: 2.8rem;
-  margin-bottom: 1rem;
-  line-height: 1;
-}
-.card-title {
-  font-size: 1.2rem;
-  font-weight: 600;
-  margin: 0 0 0.5rem;
-  border: none;
-  padding: 0;
-}
-.card-desc {
-  font-size: 0.88rem;
-  color: var(--secondary);
-  margin: 0 0 0.8rem;
-  line-height: 1.5;
-}
-.card-count {
-  font-size: 0.82rem;
-  color: var(--secondary);
-  background: var(--code-bg);
-  padding: 0.2rem 0.7rem;
-  border-radius: 20px;
-}
-
-/* ===== 最近更新列表 ===== */
+/* ===== 最近更新 ===== */
 .section-title {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
-  margin-bottom: 1rem;
+  color: var(--secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.8rem;
   border-bottom: 1px solid var(--border);
   padding-bottom: 0.5rem;
 }
-.post-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
+.post-list { list-style: none; padding: 0; margin: 0; }
 .post-item {
   display: flex;
   align-items: center;
   gap: 0.8rem;
-  padding: 0.55rem 0;
+  padding: 0.5rem 0;
   border-bottom: 1px solid var(--border);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
 }
-.post-date {
-  color: var(--secondary);
-  font-size: 0.82rem;
-  white-space: nowrap;
-  min-width: 88px;
-}
-.post-link {
-  flex: 1;
-  color: inherit;
-  text-decoration: none;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.post-link:hover {
-  color: var(--primary);
-}
-.post-category {
-  font-size: 0.75rem;
-  color: var(--secondary);
-  background: var(--code-bg);
-  padding: 0.15rem 0.6rem;
-  border-radius: 20px;
-  white-space: nowrap;
-}
+.post-date    { color: var(--secondary); font-size: 0.78rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.post-link    { flex: 1; color: inherit; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.post-link:hover { color: var(--primary); }
+.post-section { font-size: 0.72rem; color: var(--secondary); background: var(--code-bg); padding: 0.1rem 0.55rem; border-radius: 20px; white-space: nowrap; }

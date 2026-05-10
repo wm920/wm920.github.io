@@ -1,0 +1,43 @@
+{{- define "main" }}
+<div class="section-hero">
+  <h1>📚 学习笔记</h1>
+  <p>技术规范、芯片互联、协议解读</p>
+</div>
+
+<div class="subtopic-grid">
+  {{ $topics := slice
+    (dict "name" "FlexNOC" "slug" "flexnoc" "icon" "🔗" "desc" "互联总线架构与规范")
+    (dict "name" "DDR"     "slug" "ddr"     "icon" "💾" "desc" "内存协议与时序规范")
+    (dict "name" "PCIe"    "slug" "pcie"    "icon" "⚡" "desc" "高速串行总线规范")
+    (dict "name" "RDMA"    "slug" "rdma"    "icon" "🌐" "desc" "远程直接内存访问协议")
+  }}
+  {{ range $topics }}
+  {{ $section := printf "学习笔记/%s" .slug }}
+  {{ $pages := where $.Site.RegularPages "Section" $section }}
+  <a href="/学习笔记/{{ .slug }}/" class="subtopic-card">
+    <div class="subtopic-icon">{{ .icon }}</div>
+    <div class="subtopic-body">
+      <h3>{{ .name }}</h3>
+      <p>{{ .desc }}</p>
+      <span class="subtopic-count">{{ len $pages }} 篇</span>
+    </div>
+  </a>
+  {{ end }}
+</div>
+
+{{ $posts := where .Site.RegularPages "Section" "学习笔记" }}
+{{ if $posts }}
+<div class="recent-posts" style="margin-top:2.5rem">
+  <h2 class="section-title">全部文章</h2>
+  <ul class="post-list">
+    {{ range $posts.ByDate.Reverse }}
+    <li class="post-item">
+      <span class="post-date">{{ .Date.Format "2006-01-02" }}</span>
+      <a href="{{ .Permalink }}" class="post-link">{{ .Title }}</a>
+      <span class="post-section">{{ .Parent.Title }}</span>
+    </li>
+    {{ end }}
+  </ul>
+</div>
+{{ end }}
+{{- end }}

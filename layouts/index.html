@@ -1,43 +1,36 @@
 {{- define "main" }}
 <div class="home-hero">
+  <div class="hero-avatar">M</div>
   <h1 class="home-title">{{ .Site.Params.homeTitle | default .Site.Title }}</h1>
   <p class="home-subtitle">{{ .Site.Params.homeSubtitle | default .Site.Params.description }}</p>
 </div>
 
 <div class="category-grid">
   {{ $categories := slice
-    (dict "name" "学习笔记" "slug" "学习笔记" "icon" "📚" "desc" "技术总结、算法、工具使用记录")
-    (dict "name" "读书笔记" "slug" "读书笔记" "icon" "📖" "desc" "书评、摘录与思考")
-    (dict "name" "日记"     "slug" "日记"     "icon" "✏️" "desc" "日常记录与感悟")
+    (dict "name" "学习笔记" "url" "/学习笔记/" "icon" "📚" "desc" "技术规范、芯片互联、协议解读" "color" "blue")
+    (dict "name" "读书笔记" "url" "/读书笔记/" "icon" "📖" "desc" "书评、摘录与深度思考" "color" "green")
+    (dict "name" "日记"     "url" "/日记/"     "icon" "✏️" "desc" "日常记录与生活感悟"   "color" "orange")
   }}
-
   {{ range $categories }}
-    {{ $term := . }}
-    {{ $count := 0 }}
-    {{ with index $.Site.Taxonomies.categories $term.slug }}
-      {{ $count = len . }}
-    {{ end }}
-    <a href="/categories/{{ $term.slug | urlize }}/" class="category-card">
-      <div class="card-icon">{{ $term.icon }}</div>
-      <div class="card-body">
-        <h2 class="card-title">{{ $term.name }}</h2>
-        <p class="card-desc">{{ $term.desc }}</p>
-        <span class="card-count">{{ $count }} 篇文章</span>
-      </div>
-    </a>
+  <a href="{{ .url }}" class="category-card card-{{ .color }}">
+    <div class="card-icon">{{ .icon }}</div>
+    <div class="card-body">
+      <h2 class="card-title">{{ .name }}</h2>
+      <p class="card-desc">{{ .desc }}</p>
+    </div>
+    <span class="card-arrow">→</span>
+  </a>
   {{ end }}
 </div>
 
 <div class="recent-posts">
   <h2 class="section-title">最近更新</h2>
   <ul class="post-list">
-    {{ range first 5 .Site.RegularPages.ByDate.Reverse }}
+    {{ range first 8 .Site.RegularPages.ByDate.Reverse }}
     <li class="post-item">
-      <span class="post-date">{{ .Date.Format "2006-01-02" }}</span>
+      <span class="post-date">{{ .Date.Format "01-02" }}</span>
       <a href="{{ .Permalink }}" class="post-link">{{ .Title }}</a>
-      {{ with .Params.categories }}
-        <span class="post-category">{{ index . 0 }}</span>
-      {{ end }}
+      <span class="post-section">{{ .Section }}</span>
     </li>
     {{ end }}
   </ul>
