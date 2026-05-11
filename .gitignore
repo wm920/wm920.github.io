@@ -1,3 +1,7 @@
 public/
 resources/
 .hugo_build.lock
+
+# FlexNOC NIU 翻译系列 - 本地存档，不推送（法务合规考虑）
+content/学习笔记/flexnoc/niu-*/
+content/学习笔记/flexnoc/_niu-translation-template.md
