@@ -1,7 +1,7 @@
 ---
 title: "写好 picode.md / CLAUDE.md 的五条经验 · Agent 工程契约"
 date: 2026-05-13T10:30:00+08:00
-draft: true
+draft: false
 level: intermediate
 author: "min920"
 author_link: "https://github.com/wm920"

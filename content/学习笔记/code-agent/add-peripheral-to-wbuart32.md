@@ -1,7 +1,7 @@
 ---
 title: "给 wbuart32 加一个新外设：Agent 主导的实战"
 date: 2026-05-13
-draft: true
+draft: false
 tags: ["code-agent", "wbuart32", "wishbone", "verilog", "peripheral", "gpio"]
 categories: ["学习笔记", "code-agent"]
 series: ["用 Agent 改芯片代码"]

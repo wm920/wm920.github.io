@@ -1,7 +1,7 @@
 ---
 title: "Ibex 代码评审 agent：按 lowRISC coding style 自动 review"
 date: 2026-05-13T10:30:00+08:00
-draft: true
+draft: false
 level: advanced
 author: "min920"
 author_link: "https://github.com/wm920"

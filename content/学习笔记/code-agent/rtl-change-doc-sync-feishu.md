@@ -1,7 +1,7 @@
 ---
 title: "RTL 改了自动更新设计文档：飞书 wiki 同步"
 date: 2026-05-13T09:00:00+08:00
-draft: true
+draft: false
 tags: ["code-agent", "RTL", "design-doc", "feishu", "park-cli", "automation"]
 categories: ["学习笔记", "code-agent"]
 description: "当 Verilog 顶层接口变了，谁去改 wiki？让 agent 做——检测端口 diff、生成摘要、推送飞书 wiki。本文给出一条可落地的同步链路。"

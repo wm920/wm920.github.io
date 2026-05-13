@@ -1,7 +1,7 @@
 ---
 title: "多版本分支并行维护：agent 自动 cherry-pick"
 date: 2026-05-13T20:00:00+08:00
-draft: true
+draft: false
 tags: ["code-agent", "git", "cherry-pick", "release-branch", "automation"]
 categories: ["学习笔记", "code-agent"]
 description: "芯片项目常年背着 main + release-v1 + release-v2 三条分支，哪些 commit 该回移、哪些不该？让 agent 来做第一道判定，冲突时再找人。"

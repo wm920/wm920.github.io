@@ -1,7 +1,7 @@
 ---
 title: "Mermaid 一键转飞书画板：从文档图到可编辑画板的工作流"
 date: 2026-05-13T10:45:00+08:00
-draft: true
+draft: false
 level: intermediate
 author: "min920"
 author_link: "https://github.com/wm920"

@@ -1,7 +1,7 @@
 ---
 title: "Bug 长期追踪 agent：commit 引入 bug 自动指认"
 date: 2026-05-13T13:00:00+08:00
-draft: true
+draft: false
 tags: ["code-agent", "git-bisect", "debug", "automation", "rtl"]
 categories: ["学习笔记", "code-agent"]
 description: "git bisect 的机械二分已经不够了。让 agent 结合 commit 语义、touched files 相关性加速定位——本文给出一套可落地的 bisect agent 流程。"

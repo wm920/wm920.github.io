@@ -1,7 +1,7 @@
 ---
 title: "波形 / log 分析 agent：仿真失败自动定位"
 date: 2026-05-13T10:30:00+08:00
-draft: true
+draft: false
 level: intermediate
 author: "min920"
 author_link: "https://github.com/wm920"

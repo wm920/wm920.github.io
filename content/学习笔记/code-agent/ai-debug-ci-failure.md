@@ -1,7 +1,7 @@
 ---
 title: "「AI 帮我看 CI 失败」完整复盘——一次真实的 debug 链路"
 date: 2026-05-13T15:00:00+08:00
-draft: true
+draft: false
 level: intermediate
 author: "min920"
 author_link: "https://github.com/wm920"

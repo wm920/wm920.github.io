@@ -1,7 +1,7 @@
 ---
 title: "PiCode memory 系统该存什么、不该存什么"
 date: 2026-05-13T14:00:00+08:00
-draft: true
+draft: false
 level: beginner
 author: "min920"
 author_link: "https://github.com/wm920"

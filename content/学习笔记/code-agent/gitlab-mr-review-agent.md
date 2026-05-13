@@ -1,7 +1,7 @@
 ---
 title: "Agent 做 GitLab MR Code Review 的工作流"
 date: 2026-05-13T13:00:00+08:00
-draft: true
+draft: false
 level: intermediate
 author: "min920"
 author_link: "https://github.com/wm920"

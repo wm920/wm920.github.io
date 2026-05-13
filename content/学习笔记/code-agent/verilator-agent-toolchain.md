@@ -1,7 +1,7 @@
 ---
 title: "Verilator + Agent：开源 RTL 工具链怎么串起来"
 date: 2026-05-13T20:00:00+08:00
-draft: true
+draft: false
 level: intermediate
 author: "min920"
 author_link: "https://github.com/wm920"

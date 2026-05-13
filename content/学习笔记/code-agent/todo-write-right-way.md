@@ -1,7 +1,7 @@
 ---
 title: "todo_write 用对的姿势：什么时候拉 list，什么时候别"
 date: 2026-05-13T13:00:00+08:00
-draft: true
+draft: false
 level: beginner
 author: "min920"
 author_link: "https://github.com/wm920"

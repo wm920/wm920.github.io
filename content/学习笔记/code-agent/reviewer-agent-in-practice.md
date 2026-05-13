@@ -1,7 +1,7 @@
 ---
 title: "Reviewer 角色实战：让一个 agent 专挑另一个的毛病"
 date: 2026-05-13T10:30:00+08:00
-draft: true
+draft: false
 level: advanced
 author: "min920"
 author_link: "https://github.com/wm920"

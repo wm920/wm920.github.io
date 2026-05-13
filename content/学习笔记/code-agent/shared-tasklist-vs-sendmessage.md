@@ -1,7 +1,7 @@
 ---
 title: "共享 task list vs send_message：多 agent 协作通信怎么选"
 date: 2026-05-13T23:00:00+08:00
-draft: true
+draft: false
 level: intermediate
 author: "min920"
 author_link: "https://github.com/wm920"

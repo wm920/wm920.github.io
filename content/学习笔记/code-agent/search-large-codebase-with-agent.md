@@ -1,7 +1,7 @@
 ---
 title: "大代码库检索三件套：grep / glob / explore subagent"
 date: 2026-05-12T15:00:00+08:00
-draft: true
+draft: false
 level: intermediate
 author: "min920"
 author_link: "https://github.com/wm920"

@@ -1,7 +1,7 @@
 ---
 title: "PiCode 的 use_skill 按需加载机制：我为什么不把所有技能都开"
 date: 2026-05-13T11:00:00+08:00
-draft: true
+draft: false
 level: intermediate
 author: "min920"
 author_link: "https://github.com/wm920"

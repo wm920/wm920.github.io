@@ -1,7 +1,7 @@
 ---
 title: "用 Agent 5 分钟读完 PicoRV32：从 README 到核心模块导览"
 date: 2026-05-13
-draft: true
+draft: false
 tags: ["code-agent", "picorv32", "risc-v", "verilog", "读代码"]
 categories: ["学习笔记", "code-agent"]
 series: ["用 Agent 改芯片代码"]

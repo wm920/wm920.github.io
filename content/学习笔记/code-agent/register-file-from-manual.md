@@ -1,7 +1,7 @@
 ---
 title: "让 agent 读寄存器手册自动生成 register file：OpenTitan hjson 逆向流水线"
 date: 2026-05-13T13:00:00+08:00
-draft: true
+draft: false
 level: intermediate
 author: "min920"
 author_link: "https://github.com/wm920"

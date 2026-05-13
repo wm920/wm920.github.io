@@ -1,7 +1,7 @@
 ---
 title: "git worktree 隔离让多 agent 改同一仓库不打架"
 date: 2026-05-13T23:05:00+08:00
-draft: true
+draft: false
 level: advanced
 author: "min920"
 author_link: "https://github.com/wm920"

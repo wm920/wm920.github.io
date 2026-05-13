@@ -1,7 +1,7 @@
 ---
 title: "多角色协作的 5 个反模式：哪些活真的不该拆"
 date: 2026-05-13T20:00:00+08:00
-draft: true
+draft: false
 level: intermediate
 author: "min920"
 author_link: "https://github.com/wm920"

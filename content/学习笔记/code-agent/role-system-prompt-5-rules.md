@@ -1,7 +1,7 @@
 ---
 title: "给角色 agent 写 system prompt 的 5 条戒律"
 date: 2026-05-13T22:55:00+08:00
-draft: true
+draft: false
 level: advanced
 author: "min920"
 author_link: "https://github.com/wm920"

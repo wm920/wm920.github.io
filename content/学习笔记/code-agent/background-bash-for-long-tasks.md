@@ -1,7 +1,7 @@
 ---
 title: "background bash 在长跑任务里的正确用法 · 从阻塞到轮询"
 date: 2026-05-13T10:35:00+08:00
-draft: true
+draft: false
 level: intermediate
 author: "min920"
 author_link: "https://github.com/wm920"

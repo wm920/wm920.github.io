@@ -1,7 +1,7 @@
 ---
 title: "为什么传统 EDA 工作流难以 agent 化"
 date: 2026-05-13T22:00:00+08:00
-draft: true
+draft: false
 tags: ["code-agent", "EDA", "chip-design", "meta", "automation"]
 categories: ["学习笔记", "code-agent"]
 description: "软件圈 agent 风风火火，EDA 圈却静得出奇。不是 EDA 工程师不想自动化，是五堵现实的墙——闭源工具、license 瓶颈、仿真耗时、隐式知识、NFS 数据——让 agent 进不来。本文逐条拆解并给处方。"

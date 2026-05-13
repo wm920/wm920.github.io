@@ -1,7 +1,7 @@
 ---
 title: "commit 前的质量门禁 Agent：比 pre-commit hook 聪明一档"
 date: 2026-05-13T15:30:00+08:00
-draft: true
+draft: false
 level: advanced
 author: "min920"
 author_link: "https://github.com/wm920"

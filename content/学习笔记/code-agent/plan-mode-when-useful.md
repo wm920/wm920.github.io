@@ -1,7 +1,7 @@
 ---
 title: "Claude Code 的 plan mode 什么时候真有用"
 date: 2026-05-13T10:30:00+08:00
-draft: true
+draft: false
 level: beginner
 author: "min920"
 author_link: "https://github.com/wm920"

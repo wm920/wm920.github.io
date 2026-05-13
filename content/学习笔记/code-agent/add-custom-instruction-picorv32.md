@@ -1,7 +1,7 @@
 ---
 title: "让 Agent 给 PicoRV32 加一条自定义指令（端到端方法论）"
 date: 2026-05-13
-draft: true
+draft: false
 tags: ["code-agent", "picorv32", "risc-v", "verilog", "custom-instruction", "pcpi"]
 categories: ["学习笔记", "code-agent"]
 series: ["用 Agent 改芯片代码"]

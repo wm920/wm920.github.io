@@ -1,7 +1,7 @@
 ---
 title: "让 agent 写出靠谱 commit message 的提示词"
 date: 2026-05-13T10:40:00+08:00
-draft: true
+draft: false
 level: beginner
 author: "min920"
 author_link: "https://github.com/wm920"

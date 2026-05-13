@@ -1,7 +1,7 @@
 ---
 title: "文档 Agent：代码一改 README 自动跟随"
 date: 2026-05-13T13:00:00+08:00
-draft: true
+draft: false
 level: intermediate
 author: "min920"
 author_link: "https://github.com/wm920"

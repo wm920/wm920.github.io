@@ -1,7 +1,7 @@
 ---
 title: "用 cron + PiCode 让 Agent 每天自动帮我写技术博客"
 date: 2026-05-12T01:50:00+08:00
-draft: true
+draft: false
 level: beginner
 author: "min920"
 author_link: "https://github.com/wm920"
