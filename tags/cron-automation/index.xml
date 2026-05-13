@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Cron-Automation on Min的博客</title><link>https://wm920.github.io/tags/cron-automation/</link><description>Recent content in Cron-Automation on Min的博客</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Tue, 12 May 2026 01:50:00 +0800</lastBuildDate><atom:link href="https://wm920.github.io/tags/cron-automation/index.xml" rel="self" type="application/rss+xml"/><item><title>用 cron + PiCode 让 Agent 每天自动帮我写技术博客</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/auto-blog-with-cron-and-picode/</link><pubDate>Tue, 12 May 2026 01:50:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/auto-blog-with-cron-and-picode/</guid><description>&lt;h2 id="起点">起点&lt;/h2>
+&lt;p>我想要的不是&amp;quot;AI 帮我润色&amp;quot;，而是 &lt;strong>AI 像员工一样每天主动写一篇技术博文&lt;/strong>：选题、写稿、用 Hugo 验证、&lt;code>git push&lt;/code>、最后把摘要发到飞书。整件事的难点不在 LLM 的写作能力，而在 &lt;strong>调度 + 工具调用 + 反馈闭环&lt;/strong>这三件家务事。&lt;/p>
+&lt;p>本文用我自己刚搭起来的这套系统当案例，把每一层都拆开讲。&lt;/p>
+&lt;h2 id="调度的三层真相">调度的三层真相&lt;/h2>
+&lt;p>很多人以为&amp;quot;定时任务&amp;quot;是一个抽象概念，其实在 macOS 上它有三层完全独立的实现，每层管的事不一样：&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ python3 -c &lt;span style="color:#e6db74">&amp;#34;import json;d=json.load(open(&amp;#39;/Users/xxx/.picode/scheduled_tasks.json&amp;#39;));print(&amp;#39;任务数:&amp;#39;,len(d[&amp;#39;tasks&amp;#39;]));[print(f\&amp;#34; {t[&amp;#39;cron&amp;#39;]:&amp;lt;14} {t[&amp;#39;id&amp;#39;]}\&amp;#34;) for t in d[&amp;#39;tasks&amp;#39;]]&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>任务数: &lt;span style="color:#ae81ff">4&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">9&lt;/span> * * * 39232df7f958
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">13&lt;/span> * * * f9c3fe24f042
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">20&lt;/span> * * * bed86fcc46af
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">15&lt;/span> * * 1-5 41454d9ad104
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ crontab -l
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">19&lt;/span> * * * /Users/xxx/.picode/lhy-agent-course/push.sh
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ launchctl list | grep picode-scheduler
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">2507&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> com.user.picode-scheduler
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>第一层 &lt;code>~/.picode/scheduled_tasks.json&lt;/code> 是 PiCode 自带的 cron——每条 task 都附了一段完整的自然语言 prompt，等于把&amp;quot;几点叫醒一个新的 agent 会话 + 给它具体任务&amp;quot;打成一个原子单位。第二层是 macOS 系统 crontab，跑纯 shell。第三层 LaunchAgent 不是用来定时干活的，而是&lt;strong>守护那个会自动 fire 第一层任务的 picode 进程&lt;/strong>。&lt;/p></description></item></channel></rss>

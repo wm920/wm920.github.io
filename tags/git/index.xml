@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Git on Min的博客</title><link>https://wm920.github.io/tags/git/</link><description>Recent content in Git on Min的博客</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Wed, 13 May 2026 23:05:00 +0800</lastBuildDate><atom:link href="https://wm920.github.io/tags/git/index.xml" rel="self" type="application/rss+xml"/><item><title>git worktree 隔离让多 agent 改同一仓库不打架</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/git-worktree-multi-agent/</link><pubDate>Wed, 13 May 2026 23:05:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/git-worktree-multi-agent/</guid><description>&lt;p>让 3 个 agent 同时改同一个仓库，十有八九会翻车——不是 A 把 B 改的文件覆盖了，就是 C 切了个分支把 A/B 的未提交改动带飞。&lt;/p>
+&lt;p>最&amp;quot;正确&amp;quot;的隔离方式是每个 agent 各自 &lt;code>git clone&lt;/code> 一份，但大仓（比如 CPU RTL 动辄几 GB）这么搞磁盘和时间都受不了。更轻的方案是 &lt;code>git worktree&lt;/code>——&lt;strong>共享 .git，分 Working Directory&lt;/strong>，既不重复下载，又让每个 agent 拿到独立的文件空间。&lt;/p>
+&lt;p>本文把 worktree 原理讲清楚，列出什么场景必须用，哪些坑必踩，最后用 picorv32 真实仓库跑一遍完整流程。&lt;/p>
+&lt;h2 id="背景三个-agent-改同一仓库的典型翻车">背景：三个 agent 改同一仓库的典型翻车&lt;/h2>
+&lt;p>场景：让三个 sub-agent 并行处理 RTL 仓库——&lt;/p>
+&lt;ul>
+&lt;li>Agent A：跑 baseline 回归测试（需要 checkout main）&lt;/li>
+&lt;li>Agent B：改 AXI arbiter，跑新测试（需要 checkout 新分支 + modify files）&lt;/li>
+&lt;li>Agent C：bisect 一个历史 bug（需要来回 checkout 旧 commit）&lt;/li>
+&lt;/ul>
+&lt;p>三个全部指向 &lt;code>~/repos/rtl&lt;/code>，会发生：&lt;/p>
+&lt;ol>
+&lt;li>B 正在 &lt;code>git checkout -b fix-axi&lt;/code> 的时刻，A 发起 &lt;code>git checkout main&lt;/code>——git 会把 B 的未提交修改一并带到 main 或直接报错。&lt;/li>
+&lt;li>C 的 &lt;code>git bisect&lt;/code> 切到 3 年前的 commit，A 的测试 runner 以为自己在 main 上，读到了古早代码开始跑，结果全 fail。&lt;/li>
+&lt;li>B 保存修改后 &lt;code>git add -A&lt;/code>，把 A 临时生成的 log 文件也 staged 了。&lt;/li>
+&lt;/ol>
+&lt;p>根因只有一个：&lt;strong>git 的 working directory 与 .git 是 1:1 绑定的&lt;/strong>，所有进入这个目录的进程共享同一个 HEAD、同一个 index。&lt;/p></description></item><item><title>多版本分支并行维护：agent 自动 cherry-pick</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/multi-branch-cherry-pick-agent/</link><pubDate>Wed, 13 May 2026 20:00:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/multi-branch-cherry-pick-agent/</guid><description>芯片项目常年背着 main + release-v1 + release-v2 三条分支，哪些 commit 该回移、哪些不该？让 agent 来做第一道判定，冲突时再找人。</description></item><item><title>commit 前的质量门禁 Agent：比 pre-commit hook 聪明一档</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/pre-commit-quality-gate-agent/</link><pubDate>Wed, 13 May 2026 15:30:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/pre-commit-quality-gate-agent/</guid><description>&lt;h2 id="起点">起点&lt;/h2>
+&lt;p>用过 &lt;a href="https://pre-commit.com/">pre-commit&lt;/a> 的人都知道它的甜点区：lint、format、secret scan 这类&lt;strong>确定性检查&lt;/strong>，写个 hook 一劳永逸。但用久了也知道它的天花板：&lt;/p>
+&lt;ul>
+&lt;li>它看得出代码没过 lint，看不出&lt;strong>这次改动风险高不高&lt;/strong>&lt;/li>
+&lt;li>它看得出测试文件没动，看不出&lt;strong>缺了哪种测试&lt;/strong>&lt;/li>
+&lt;li>它能 reject 空 commit message，reject 不了「fix bug」这种没信息量的 message&lt;/li>
+&lt;li>它更看不出&lt;strong>相关文档是不是该一起改&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;p>这些「需要读懂语义」的活儿，刚好是一个 agent 能干的。本文讲我怎么在 pre-commit hook 外面多套一层「质量门禁 Agent」，对改动做三档决策（warn/block/ask），并给一段可直接用的 bash wrapper。&lt;/p>
+&lt;h2 id="真实仓库是啥样">真实仓库是啥样&lt;/h2>
+&lt;p>先看我自己这个博客仓库的近况：&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ cd ~/blog &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> git log --oneline -10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>d421b44 docs&lt;span style="color:#f92672">(&lt;/span>ddr&lt;span style="color:#f92672">)&lt;/span>: 新增进阶文章《DDR 训练流程详解：从 Write Leveling 到 DQ Training》
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ae68199 docs: add article &lt;span style="color:#75715e">#28 - 大代码库检索三件套 grep/glob/explore subagent&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>9d807ec docs&lt;span style="color:#f92672">(&lt;/span>flexnoc&lt;span style="color:#f92672">)&lt;/span>: 新增 FlexNOC 仲裁策略深度解析
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>b490e26 draft: code-agent &lt;span style="color:#ae81ff">1&lt;/span> - 用 cron + PiCode 让 Agent 每天自动帮我写技术博客
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>b2f56af draft: FlexNOC 本地目录页 + RDMA 入门
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>325ef60 chore: 从公开仓库移除 FlexNOC NIU 翻译系列（法务合规，本地保留）
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>f44060c draft: FlexNOC NIU &lt;span style="color:#ae81ff">14&lt;/span> - 协议专篇 OCP NIU &lt;span style="color:#f92672">[&lt;/span>中英对照&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>293e301 draft: FlexNOC NIU &lt;span style="color:#ae81ff">13&lt;/span> - 协议专篇 Write Broadcast Station NIU &lt;span style="color:#f92672">[&lt;/span>中英对照&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>8f1efd3 draft: FlexNOC NIU &lt;span style="color:#ae81ff">12&lt;/span> - 协议专篇 NSP NIU &lt;span style="color:#f92672">[&lt;/span>中英对照&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>980884f draft: FlexNOC NIU &lt;span style="color:#ae81ff">11&lt;/span> - 协议专篇 AXI-Lite NIU &lt;span style="color:#f92672">[&lt;/span>中英对照&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ git diff --stat HEAD~5..HEAD 2&amp;gt;/dev/null | head -20
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> content/学习笔记/code-agent/_topics.md | &lt;span style="color:#ae81ff">77&lt;/span> +++++++
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> .../code-agent/auto-blog-with-cron-and-picode.md | &lt;span style="color:#ae81ff">135&lt;/span> +++++++++++
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> .../code-agent/search-large-codebase-with-agent.md | &lt;span style="color:#ae81ff">246&lt;/span> ++++++++++++++++++++
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> content/学习笔记/ddr/ddr-training-flow.md | &lt;span style="color:#ae81ff">248&lt;/span> +++++++++++++++++++++
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> content/学习笔记/flexnoc/_index.md | &lt;span style="color:#ae81ff">30&lt;/span> +++
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> content/学习笔记/flexnoc/flexnoc-arbitration.md | &lt;span style="color:#ae81ff">227&lt;/span> +++++++++++++++++++
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> .../学习笔记/rdma/rdma-basics-from-tcp-to-ib.md | &lt;span style="color:#ae81ff">198&lt;/span> ++++++++++++++++
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">7&lt;/span> files changed, &lt;span style="color:#ae81ff">1161&lt;/span> insertions&lt;span style="color:#f92672">(&lt;/span>+&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这说明博客仓库是非常线性且整洁的 commit 风格——每个 commit 干一件事，diff 都是成篇新增、没有穿插式修改。即使是这种「作者自律良好」的仓库，下文要讲的门禁 Agent 仍然有落点：比如判断 commit message 是否包含主题、draft 文章是否需要补 categories/tags、跨文章引用是否断链等。&lt;/p></description></item></channel></rss>

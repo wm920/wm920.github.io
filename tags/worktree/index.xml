@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Worktree on Min的博客</title><link>https://wm920.github.io/tags/worktree/</link><description>Recent content in Worktree on Min的博客</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Wed, 13 May 2026 23:05:00 +0800</lastBuildDate><atom:link href="https://wm920.github.io/tags/worktree/index.xml" rel="self" type="application/rss+xml"/><item><title>git worktree 隔离让多 agent 改同一仓库不打架</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/git-worktree-multi-agent/</link><pubDate>Wed, 13 May 2026 23:05:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/git-worktree-multi-agent/</guid><description>&lt;p>让 3 个 agent 同时改同一个仓库，十有八九会翻车——不是 A 把 B 改的文件覆盖了，就是 C 切了个分支把 A/B 的未提交改动带飞。&lt;/p>
+&lt;p>最&amp;quot;正确&amp;quot;的隔离方式是每个 agent 各自 &lt;code>git clone&lt;/code> 一份，但大仓（比如 CPU RTL 动辄几 GB）这么搞磁盘和时间都受不了。更轻的方案是 &lt;code>git worktree&lt;/code>——&lt;strong>共享 .git，分 Working Directory&lt;/strong>，既不重复下载，又让每个 agent 拿到独立的文件空间。&lt;/p>
+&lt;p>本文把 worktree 原理讲清楚，列出什么场景必须用，哪些坑必踩，最后用 picorv32 真实仓库跑一遍完整流程。&lt;/p>
+&lt;h2 id="背景三个-agent-改同一仓库的典型翻车">背景：三个 agent 改同一仓库的典型翻车&lt;/h2>
+&lt;p>场景：让三个 sub-agent 并行处理 RTL 仓库——&lt;/p>
+&lt;ul>
+&lt;li>Agent A：跑 baseline 回归测试（需要 checkout main）&lt;/li>
+&lt;li>Agent B：改 AXI arbiter，跑新测试（需要 checkout 新分支 + modify files）&lt;/li>
+&lt;li>Agent C：bisect 一个历史 bug（需要来回 checkout 旧 commit）&lt;/li>
+&lt;/ul>
+&lt;p>三个全部指向 &lt;code>~/repos/rtl&lt;/code>，会发生：&lt;/p>
+&lt;ol>
+&lt;li>B 正在 &lt;code>git checkout -b fix-axi&lt;/code> 的时刻，A 发起 &lt;code>git checkout main&lt;/code>——git 会把 B 的未提交修改一并带到 main 或直接报错。&lt;/li>
+&lt;li>C 的 &lt;code>git bisect&lt;/code> 切到 3 年前的 commit，A 的测试 runner 以为自己在 main 上，读到了古早代码开始跑，结果全 fail。&lt;/li>
+&lt;li>B 保存修改后 &lt;code>git add -A&lt;/code>，把 A 临时生成的 log 文件也 staged 了。&lt;/li>
+&lt;/ol>
+&lt;p>根因只有一个：&lt;strong>git 的 working directory 与 .git 是 1:1 绑定的&lt;/strong>，所有进入这个目录的进程共享同一个 HEAD、同一个 index。&lt;/p></description></item></channel></rss>

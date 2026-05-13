@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Register on Min的博客</title><link>https://wm920.github.io/tags/register/</link><description>Recent content in Register on Min的博客</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Wed, 13 May 2026 13:00:00 +0800</lastBuildDate><atom:link href="https://wm920.github.io/tags/register/index.xml" rel="self" type="application/rss+xml"/><item><title>让 agent 读寄存器手册自动生成 register file：OpenTitan hjson 逆向流水线</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/register-file-from-manual/</link><pubDate>Wed, 13 May 2026 13:00:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/register-file-from-manual/</guid><description>&lt;p>芯片工程师的日常有一条工序叫「抄手册」：拿到一份 PDF 或 Markdown 的寄存器 spec，逐字段抄进 SV 里，写 offset、写 reset value、写 &lt;code>swaccess&lt;/code>、再补一份软件侧头文件。活本身不难，但累、容易错、而且错了很晚才被发现——&lt;code>swaccess&lt;/code> 写反一位，DV 跑三周才暴雷。&lt;/p>
+&lt;p>OpenTitan 把这条工序做成了「从 &lt;code>.hjson&lt;/code> 描述 → 一键生成 RTL + C header + DV + 文档」的 &lt;code>reggen&lt;/code> 工具链。我这篇想写的是&lt;strong>反方向&lt;/strong>：让 agent 读一份自然语言写的寄存器手册，产出 OpenTitan 风格的 hjson，再复用 &lt;code>reggen&lt;/code> 把 RTL 生出来，把人工抄 spec 的活彻底抹掉。&lt;/p>
+&lt;h2 id="为什么从-hjson-下手">为什么从 hjson 下手&lt;/h2>
+&lt;p>先看一眼 hjson 到底长什么样。拿 OpenTitan 里的 EDN（Entropy Distribution Network）做样本：&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>$ find hw/ip -name &amp;#34;*.hjson&amp;#34; -path &amp;#34;*data*&amp;#34; | head -5
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>hw/ip/edn/data/edn.hjson
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>hw/ip/edn/data/edn_sec_cm_testplan.hjson
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>hw/ip/edn/data/edn_testplan.hjson
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>hw/ip/usbdev/data/usbdev_sec_cm_testplan.hjson
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>hw/ip/usbdev/data/usbdev_testplan.hjson
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ wc -l hw/ip/edn/data/edn.hjson
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 657 hw/ip/edn/data/edn.hjson
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>关键片段：&lt;/p></description></item></channel></rss>

@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Claude-Code on Min的博客</title><link>https://wm920.github.io/tags/claude-code/</link><description>Recent content in Claude-Code on Min的博客</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Wed, 13 May 2026 10:35:00 +0800</lastBuildDate><atom:link href="https://wm920.github.io/tags/claude-code/index.xml" rel="self" type="application/rss+xml"/><item><title>background bash 在长跑任务里的正确用法 · 从阻塞到轮询</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/background-bash-for-long-tasks/</link><pubDate>Wed, 13 May 2026 10:35:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/background-bash-for-long-tasks/</guid><description>&lt;p>Agent 的 bash 工具默认是&lt;strong>同步阻塞&lt;/strong>的：发一条命令，等它 stdout 结束，才回到对话。这对 &lt;code>ls&lt;/code> 之类的毫秒级命令没问题，但一旦遇到：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>git clone&lt;/code> 一个几百兆的仓库&lt;/li>
+&lt;li>&lt;code>hugo --minify&lt;/code> 渲染几百篇文章的站&lt;/li>
+&lt;li>&lt;code>pytest&lt;/code> 跑整个测试套&lt;/li>
+&lt;/ul>
+&lt;p>默认模式会出三种问题：&lt;strong>会话被长时间占用&lt;/strong>、&lt;strong>超时被强杀&lt;/strong>、&lt;strong>日志输出顶满上下文窗口&lt;/strong>。PiCode 里的 &lt;code>run_in_background=true&lt;/code> 就是为这三类场景准备的。&lt;/p>
+&lt;h2 id="它到底做了什么">它到底做了什么&lt;/h2>
+&lt;p>同步模式下，bash 工具会等进程退出再把 stdout + stderr 拼成一个字符串返回给 agent。一旦超过默认 10 分钟，tool 返回 timeout，进程被 kill。&lt;/p>
+&lt;p>background 模式不一样。它立即返回一个 task_id，把真实进程交给父 runner 管，stdout/stderr 重定向到本地 log 文件。Agent 可以随时用 &lt;code>bash_output&lt;/code> 轮询最新几百行，用 &lt;code>kill_shell&lt;/code> 终止进程。&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>sequenceDiagram
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> participant A as Agent
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> participant T as Bash Tool
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> participant P as Process
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> participant L as Log File
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> A-&amp;gt;&amp;gt;T: bash(cmd, run_in_background=true)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> T-&amp;gt;&amp;gt;P: fork + exec
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> T-&amp;gt;&amp;gt;L: redirect stdout/stderr
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> T--&amp;gt;&amp;gt;A: {task_id: bg_abc123}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Note over A: agent 可以继续做别的事
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> loop 每隔几分钟
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> A-&amp;gt;&amp;gt;T: bash_output(bg_abc123)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> T-&amp;gt;&amp;gt;L: tail -f 新增内容
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> T--&amp;gt;&amp;gt;A: 最近输出片段
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> end
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> P-&amp;gt;&amp;gt;L: 进程结束
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> A-&amp;gt;&amp;gt;T: bash_output(bg_abc123)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> T--&amp;gt;&amp;gt;A: 最终输出 + exit_code
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>关键点：&lt;strong>agent 在等的过程中不占 token&lt;/strong>。日志一直写到文件，只在你主动轮询时读你要的那几百行，长日志被截断也不会撑爆上下文。&lt;/p></description></item><item><title>Claude Code 的 plan mode 什么时候真有用</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/plan-mode-when-useful/</link><pubDate>Wed, 13 May 2026 10:30:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/plan-mode-when-useful/</guid><description>&lt;h2 id="起点不是能不能写的问题是要不要先停下来">起点：不是「能不能写」的问题，是「要不要先停下来」&lt;/h2>
+&lt;p>刚用 Claude Code / PiCode 这类 Code Agent 的人，最容易犯的一个错是——看见 plan mode 按钮就开。另一个极端是——从头到尾全开 bypass，让 agent 自己飞。两种用法都浪费了这个档位设计的意义。&lt;/p>
+&lt;p>plan mode 不是「更安全的 default」，它是一个&lt;strong>强制只读的调研档&lt;/strong>。理解这点之前，我们先看 PiCode 实际暴露出来的几档权限。&lt;/p>
+&lt;h2 id="三档权限模式到底是什么">三档权限模式到底是什么&lt;/h2>
+&lt;p>PiCode CLI 直接暴露了 5 个 permission mode，但和写作业相关的只有 3 档：&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>$ picode --help | grep -A1 permission-mode
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> [--permission-mode {default,acceptEdits,plan,bypass,dontAsk}]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> --permission-mode {default,acceptEdits,plan,bypass,dontAsk}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Permission mode: default (prompt), acceptEdits (auto-
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>对应到实际行为：&lt;/p></description></item><item><title>写好 picode.md / CLAUDE.md 的五条经验 · Agent 工程契约</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/picode-md-claude-md-practices/</link><pubDate>Wed, 13 May 2026 10:30:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/picode-md-claude-md-practices/</guid><description>&lt;p>项目级的 &lt;code>picode.md&lt;/code> / &lt;code>CLAUDE.md&lt;/code> 不是 README，也不是风格指南，它是 agent 和这个仓库之间的&lt;strong>工程契约&lt;/strong>：每开一个新会话，agent 会把它整段吃进上下文，然后据此决定&amp;quot;该跑什么命令、不该碰什么文件、哪些路径我闭着眼睛也别写错&amp;quot;。写不好，每次都要用大段对话把 agent 拉回正轨；写好了，一句&amp;quot;帮我写一篇 FlexNOC 文章&amp;quot;就能直接落盘。&lt;/p>
+&lt;p>这篇把我在自己博客仓库里踩过的坑收敛成五条经验，配好/坏两版对照。&lt;/p>
+&lt;h2 id="先看这个仓库里真实存在的-md">先看这个仓库里真实存在的 .md&lt;/h2>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>$ find ~/blog -maxdepth 2 -iname &amp;#34;claude.md&amp;#34; -o -iname &amp;#34;picode.md&amp;#34; 2&amp;gt;/dev/null
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/Users/bytedance/blog/picode.md
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>一个项目只放一份，位置就在仓库根。内容节选：&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-markdown" data-lang="markdown">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 基本信息
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">-&lt;/span> 博客地址：https://wm920.github.io
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">-&lt;/span> 本地路径：~/blog
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">-&lt;/span> GitHub 仓库：wm920/wm920.github.io（main 分支）
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">-&lt;/span> Hugo 二进制：~/bin/hugo
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 内容目录结构
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">-&lt;/span> content/学习笔记/flexnoc/ → FlexNOC 互联总线架构（优先方向）
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">-&lt;/span> content/学习笔记/ddr/ → DDR 内存协议
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 发布流程
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">1.&lt;/span> 检查目录下已有文章，确认选题不重复
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">2.&lt;/span> 撰写文章，设置 draft: true
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">3.&lt;/span> 本地 &lt;span style="color:#e6db74">`~/bin/hugo --minify`&lt;/span> 构建验证
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">4.&lt;/span> git add → git commit → git push
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>为什么它能稳定驱动一个每天 4 班的定时 agent？因为它满足下面五条。&lt;/p></description></item></channel></rss>

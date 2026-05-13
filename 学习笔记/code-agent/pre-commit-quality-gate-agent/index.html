@@ -1,0 +1,352 @@
+<!doctype html><html lang=en dir=auto data-theme=auto><head><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no"><meta name=robots content="index, follow"><title>commit 前的质量门禁 Agent：比 pre-commit hook 聪明一档 | Min的博客</title>
+<meta name=keywords content="code-agent,multi-agent,git,pre-commit,workflow,picode"><meta name=description content="起点
+用过 pre-commit 的人都知道它的甜点区：lint、format、secret scan 这类确定性检查，写个 hook 一劳永逸。但用久了也知道它的天花板：
+
+它看得出代码没过 lint，看不出这次改动风险高不高
+它看得出测试文件没动，看不出缺了哪种测试
+它能 reject 空 commit message，reject 不了「fix bug」这种没信息量的 message
+它更看不出相关文档是不是该一起改
+
+这些「需要读懂语义」的活儿，刚好是一个 agent 能干的。本文讲我怎么在 pre-commit hook 外面多套一层「质量门禁 Agent」，对改动做三档决策（warn/block/ask），并给一段可直接用的 bash wrapper。
+真实仓库是啥样
+先看我自己这个博客仓库的近况：
+
+
+ 1
+ 2
+ 3
+ 4
+ 5
+ 6
+ 7
+ 8
+ 9
+10
+11
+
+
+$ cd ~/blog && git log --oneline -10
+d421b44 docs(ddr): 新增进阶文章《DDR 训练流程详解：从 Write Leveling 到 DQ Training》
+ae68199 docs: add article #28 - 大代码库检索三件套 grep/glob/explore subagent
+9d807ec docs(flexnoc): 新增 FlexNOC 仲裁策略深度解析
+b490e26 draft: code-agent 1 - 用 cron + PiCode 让 Agent 每天自动帮我写技术博客
+b2f56af draft: FlexNOC 本地目录页 + RDMA 入门
+325ef60 chore: 从公开仓库移除 FlexNOC NIU 翻译系列（法务合规，本地保留）
+f44060c draft: FlexNOC NIU 14 - 协议专篇 OCP NIU [中英对照]
+293e301 draft: FlexNOC NIU 13 - 协议专篇 Write Broadcast Station NIU [中英对照]
+8f1efd3 draft: FlexNOC NIU 12 - 协议专篇 NSP NIU [中英对照]
+980884f draft: FlexNOC NIU 11 - 协议专篇 AXI-Lite NIU [中英对照]
+
+
+
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+
+
+$ git diff --stat HEAD~5..HEAD 2>/dev/null | head -20
+ content/学习笔记/code-agent/_topics.md             |  77 +++++++
+ .../code-agent/auto-blog-with-cron-and-picode.md   | 135 +++++++++++
+ .../code-agent/search-large-codebase-with-agent.md | 246 ++++++++++++++++++++
+ content/学习笔记/ddr/ddr-training-flow.md          | 248 +++++++++++++++++++++
+ content/学习笔记/flexnoc/_index.md                 |  30 +++
+ content/学习笔记/flexnoc/flexnoc-arbitration.md    | 227 +++++++++++++++++++
+ .../学习笔记/rdma/rdma-basics-from-tcp-to-ib.md    | 198 ++++++++++++++++
+ 7 files changed, 1161 insertions(+)
+
+
+这说明博客仓库是非常线性且整洁的 commit 风格——每个 commit 干一件事，diff 都是成篇新增、没有穿插式修改。即使是这种「作者自律良好」的仓库，下文要讲的门禁 Agent 仍然有落点：比如判断 commit message 是否包含主题、draft 文章是否需要补 categories/tags、跨文章引用是否断链等。"><meta name=author content="min920"><link rel=canonical href=https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/pre-commit-quality-gate-agent/><link crossorigin=anonymous href=/assets/css/stylesheet.d8a0a1928d58abfb554d2d8234f806b89e42f9320038cb308616985a9dd04d5f.css integrity="sha256-2KChko1Yq/tVTS2CNPgGuJ5C+TIAOMswhhaYWp3QTV8=" rel="preload stylesheet" as=style><link rel=icon href=https://wm920.github.io/favicon.ico><link rel=icon type=image/png sizes=16x16 href=https://wm920.github.io/favicon-16x16.png><link rel=icon type=image/png sizes=32x32 href=https://wm920.github.io/favicon-32x32.png><link rel=apple-touch-icon href=https://wm920.github.io/apple-touch-icon.png><link rel=mask-icon href=https://wm920.github.io/safari-pinned-tab.svg><meta name=theme-color content="#2e2e33"><meta name=msapplication-TileColor content="#2e2e33"><link rel=alternate hreflang=en href=https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/pre-commit-quality-gate-agent/><noscript><style>#theme-toggle,.top-link{display:none}</style><style>@media(prefers-color-scheme:dark){:root{--theme:rgb(29, 30, 32);--entry:rgb(46, 46, 51);--primary:rgb(218, 218, 219);--secondary:rgb(155, 156, 157);--tertiary:rgb(65, 66, 68);--content:rgb(196, 196, 197);--code-block-bg:rgb(46, 46, 51);--code-bg:rgb(55, 56, 62);--border:rgb(51, 51, 51);color-scheme:dark}.list{background:var(--theme)}.toc{background:var(--entry)}}</style></noscript><script>localStorage.getItem("pref-theme")==="dark"?document.querySelector("html").dataset.theme="dark":localStorage.getItem("pref-theme")==="light"?document.querySelector("html").dataset.theme="light":window.matchMedia("(prefers-color-scheme: dark)").matches?document.querySelector("html").dataset.theme="dark":document.querySelector("html").dataset.theme="light"</script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js></script><script defer src=https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js onload='renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})'></script><meta property="og:url" content="https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/pre-commit-quality-gate-agent/"><meta property="og:site_name" content="Min的博客"><meta property="og:title" content="commit 前的质量门禁 Agent：比 pre-commit hook 聪明一档"><meta property="og:description" content="起点 用过 pre-commit 的人都知道它的甜点区：lint、format、secret scan 这类确定性检查，写个 hook 一劳永逸。但用久了也知道它的天花板：
+它看得出代码没过 lint，看不出这次改动风险高不高 它看得出测试文件没动，看不出缺了哪种测试 它能 reject 空 commit message，reject 不了「fix bug」这种没信息量的 message 它更看不出相关文档是不是该一起改 这些「需要读懂语义」的活儿，刚好是一个 agent 能干的。本文讲我怎么在 pre-commit hook 外面多套一层「质量门禁 Agent」，对改动做三档决策（warn/block/ask），并给一段可直接用的 bash wrapper。
+真实仓库是啥样 先看我自己这个博客仓库的近况：
+1 2 3 4 5 6 7 8 9 10 11 $ cd ~/blog && git log --oneline -10 d421b44 docs(ddr): 新增进阶文章《DDR 训练流程详解：从 Write Leveling 到 DQ Training》 ae68199 docs: add article #28 - 大代码库检索三件套 grep/glob/explore subagent 9d807ec docs(flexnoc): 新增 FlexNOC 仲裁策略深度解析 b490e26 draft: code-agent 1 - 用 cron + PiCode 让 Agent 每天自动帮我写技术博客 b2f56af draft: FlexNOC 本地目录页 + RDMA 入门 325ef60 chore: 从公开仓库移除 FlexNOC NIU 翻译系列（法务合规，本地保留） f44060c draft: FlexNOC NIU 14 - 协议专篇 OCP NIU [中英对照] 293e301 draft: FlexNOC NIU 13 - 协议专篇 Write Broadcast Station NIU [中英对照] 8f1efd3 draft: FlexNOC NIU 12 - 协议专篇 NSP NIU [中英对照] 980884f draft: FlexNOC NIU 11 - 协议专篇 AXI-Lite NIU [中英对照] 1 2 3 4 5 6 7 8 9 $ git diff --stat HEAD~5..HEAD 2>/dev/null | head -20 content/学习笔记/code-agent/_topics.md | 77 +++++++ .../code-agent/auto-blog-with-cron-and-picode.md | 135 +++++++++++ .../code-agent/search-large-codebase-with-agent.md | 246 ++++++++++++++++++++ content/学习笔记/ddr/ddr-training-flow.md | 248 +++++++++++++++++++++ content/学习笔记/flexnoc/_index.md | 30 +++ content/学习笔记/flexnoc/flexnoc-arbitration.md | 227 +++++++++++++++++++ .../学习笔记/rdma/rdma-basics-from-tcp-to-ib.md | 198 ++++++++++++++++ 7 files changed, 1161 insertions(+) 这说明博客仓库是非常线性且整洁的 commit 风格——每个 commit 干一件事，diff 都是成篇新增、没有穿插式修改。即使是这种「作者自律良好」的仓库，下文要讲的门禁 Agent 仍然有落点：比如判断 commit message 是否包含主题、draft 文章是否需要补 categories/tags、跨文章引用是否断链等。"><meta property="og:locale" content="zh_CN"><meta property="og:type" content="article"><meta property="article:section" content="学习笔记"><meta property="article:published_time" content="2026-05-13T15:30:00+08:00"><meta property="article:modified_time" content="2026-05-13T15:30:00+08:00"><meta property="article:tag" content="Code-Agent"><meta property="article:tag" content="Multi-Agent"><meta property="article:tag" content="Git"><meta property="article:tag" content="Pre-Commit"><meta property="article:tag" content="Workflow"><meta property="article:tag" content="Picode"><meta name=twitter:card content="summary"><meta name=twitter:title content="commit 前的质量门禁 Agent：比 pre-commit hook 聪明一档"><meta name=twitter:description content="起点 用过 pre-commit 的人都知道它的甜点区：lint、format、secret scan 这类确定性检查，写个 hook 一劳永逸。但用久了也知道它的天花板：
+它看得出代码没过 lint，看不出这次改动风险高不高 它看得出测试文件没动，看不出缺了哪种测试 它能 reject 空 commit message，reject 不了「fix bug」这种没信息量的 message 它更看不出相关文档是不是该一起改 这些「需要读懂语义」的活儿，刚好是一个 agent 能干的。本文讲我怎么在 pre-commit hook 外面多套一层「质量门禁 Agent」，对改动做三档决策（warn/block/ask），并给一段可直接用的 bash wrapper。
+真实仓库是啥样 先看我自己这个博客仓库的近况：
+1 2 3 4 5 6 7 8 9 10 11 $ cd ~/blog && git log --oneline -10 d421b44 docs(ddr): 新增进阶文章《DDR 训练流程详解：从 Write Leveling 到 DQ Training》 ae68199 docs: add article #28 - 大代码库检索三件套 grep/glob/explore subagent 9d807ec docs(flexnoc): 新增 FlexNOC 仲裁策略深度解析 b490e26 draft: code-agent 1 - 用 cron + PiCode 让 Agent 每天自动帮我写技术博客 b2f56af draft: FlexNOC 本地目录页 + RDMA 入门 325ef60 chore: 从公开仓库移除 FlexNOC NIU 翻译系列（法务合规，本地保留） f44060c draft: FlexNOC NIU 14 - 协议专篇 OCP NIU [中英对照] 293e301 draft: FlexNOC NIU 13 - 协议专篇 Write Broadcast Station NIU [中英对照] 8f1efd3 draft: FlexNOC NIU 12 - 协议专篇 NSP NIU [中英对照] 980884f draft: FlexNOC NIU 11 - 协议专篇 AXI-Lite NIU [中英对照] 1 2 3 4 5 6 7 8 9 $ git diff --stat HEAD~5..HEAD 2>/dev/null | head -20 content/学习笔记/code-agent/_topics.md | 77 +++++++ .../code-agent/auto-blog-with-cron-and-picode.md | 135 +++++++++++ .../code-agent/search-large-codebase-with-agent.md | 246 ++++++++++++++++++++ content/学习笔记/ddr/ddr-training-flow.md | 248 +++++++++++++++++++++ content/学习笔记/flexnoc/_index.md | 30 +++ content/学习笔记/flexnoc/flexnoc-arbitration.md | 227 +++++++++++++++++++ .../学习笔记/rdma/rdma-basics-from-tcp-to-ib.md | 198 ++++++++++++++++ 7 files changed, 1161 insertions(+) 这说明博客仓库是非常线性且整洁的 commit 风格——每个 commit 干一件事，diff 都是成篇新增、没有穿插式修改。即使是这种「作者自律良好」的仓库，下文要讲的门禁 Agent 仍然有落点：比如判断 commit message 是否包含主题、draft 文章是否需要补 categories/tags、跨文章引用是否断链等。"><script type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":2,"name":"commit 前的质量门禁 Agent：比 pre-commit hook 聪明一档","item":"https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/pre-commit-quality-gate-agent/"}]}</script><script type=application/ld+json>{"@context":"https://schema.org","@type":"BlogPosting","headline":"commit 前的质量门禁 Agent：比 pre-commit hook 聪明一档","name":"commit 前的质量门禁 Agent：比 pre-commit hook 聪明一档","description":"起点 用过 pre-commit 的人都知道它的甜点区：lint、format、secret scan 这类确定性检查，写个 hook 一劳永逸。但用久了也知道它的天花板：\n它看得出代码没过 lint，看不出这次改动风险高不高 它看得出测试文件没动，看不出缺了哪种测试 它能 reject 空 commit message，reject 不了「fix bug」这种没信息量的 message 它更看不出相关文档是不是该一起改 这些「需要读懂语义」的活儿，刚好是一个 agent 能干的。本文讲我怎么在 pre-commit hook 外面多套一层「质量门禁 Agent」，对改动做三档决策（warn/block/ask），并给一段可直接用的 bash wrapper。\n真实仓库是啥样 先看我自己这个博客仓库的近况：\n1 2 3 4 5 6 7 8 9 10 11 $ cd ~/blog \u0026amp;\u0026amp; git log --oneline -10 d421b44 docs(ddr): 新增进阶文章《DDR 训练流程详解：从 Write Leveling 到 DQ Training》 ae68199 docs: add article #28 - 大代码库检索三件套 grep/glob/explore subagent 9d807ec docs(flexnoc): 新增 FlexNOC 仲裁策略深度解析 b490e26 draft: code-agent 1 - 用 cron + PiCode 让 Agent 每天自动帮我写技术博客 b2f56af draft: FlexNOC 本地目录页 + RDMA 入门 325ef60 chore: 从公开仓库移除 FlexNOC NIU 翻译系列（法务合规，本地保留） f44060c draft: FlexNOC NIU 14 - 协议专篇 OCP NIU [中英对照] 293e301 draft: FlexNOC NIU 13 - 协议专篇 Write Broadcast Station NIU [中英对照] 8f1efd3 draft: FlexNOC NIU 12 - 协议专篇 NSP NIU [中英对照] 980884f draft: FlexNOC NIU 11 - 协议专篇 AXI-Lite NIU [中英对照] 1 2 3 4 5 6 7 8 9 $ git diff --stat HEAD~5..HEAD 2\u0026gt;/dev/null | head -20 content/学习笔记/code-agent/_topics.md | 77 +++++++ .../code-agent/auto-blog-with-cron-and-picode.md | 135 +++++++++++ .../code-agent/search-large-codebase-with-agent.md | 246 ++++++++++++++++++++ content/学习笔记/ddr/ddr-training-flow.md | 248 +++++++++++++++++++++ content/学习笔记/flexnoc/_index.md | 30 +++ content/学习笔记/flexnoc/flexnoc-arbitration.md | 227 +++++++++++++++++++ .../学习笔记/rdma/rdma-basics-from-tcp-to-ib.md | 198 ++++++++++++++++ 7 files changed, 1161 insertions(+) 这说明博客仓库是非常线性且整洁的 commit 风格——每个 commit 干一件事，diff 都是成篇新增、没有穿插式修改。即使是这种「作者自律良好」的仓库，下文要讲的门禁 Agent 仍然有落点：比如判断 commit message 是否包含主题、draft 文章是否需要补 categories/tags、跨文章引用是否断链等。\n","keywords":["code-agent","multi-agent","git","pre-commit","workflow","picode"],"articleBody":"起点 用过 pre-commit 的人都知道它的甜点区：lint、format、secret scan 这类确定性检查，写个 hook 一劳永逸。但用久了也知道它的天花板：\n它看得出代码没过 lint，看不出这次改动风险高不高 它看得出测试文件没动，看不出缺了哪种测试 它能 reject 空 commit message，reject 不了「fix bug」这种没信息量的 message 它更看不出相关文档是不是该一起改 这些「需要读懂语义」的活儿，刚好是一个 agent 能干的。本文讲我怎么在 pre-commit hook 外面多套一层「质量门禁 Agent」，对改动做三档决策（warn/block/ask），并给一段可直接用的 bash wrapper。\n真实仓库是啥样 先看我自己这个博客仓库的近况：\n1 2 3 4 5 6 7 8 9 10 11 $ cd ~/blog \u0026\u0026 git log --oneline -10 d421b44 docs(ddr): 新增进阶文章《DDR 训练流程详解：从 Write Leveling 到 DQ Training》 ae68199 docs: add article #28 - 大代码库检索三件套 grep/glob/explore subagent 9d807ec docs(flexnoc): 新增 FlexNOC 仲裁策略深度解析 b490e26 draft: code-agent 1 - 用 cron + PiCode 让 Agent 每天自动帮我写技术博客 b2f56af draft: FlexNOC 本地目录页 + RDMA 入门 325ef60 chore: 从公开仓库移除 FlexNOC NIU 翻译系列（法务合规，本地保留） f44060c draft: FlexNOC NIU 14 - 协议专篇 OCP NIU [中英对照] 293e301 draft: FlexNOC NIU 13 - 协议专篇 Write Broadcast Station NIU [中英对照] 8f1efd3 draft: FlexNOC NIU 12 - 协议专篇 NSP NIU [中英对照] 980884f draft: FlexNOC NIU 11 - 协议专篇 AXI-Lite NIU [中英对照] 1 2 3 4 5 6 7 8 9 $ git diff --stat HEAD~5..HEAD 2\u003e/dev/null | head -20 content/学习笔记/code-agent/_topics.md | 77 +++++++ .../code-agent/auto-blog-with-cron-and-picode.md | 135 +++++++++++ .../code-agent/search-large-codebase-with-agent.md | 246 ++++++++++++++++++++ content/学习笔记/ddr/ddr-training-flow.md | 248 +++++++++++++++++++++ content/学习笔记/flexnoc/_index.md | 30 +++ content/学习笔记/flexnoc/flexnoc-arbitration.md | 227 +++++++++++++++++++ .../学习笔记/rdma/rdma-basics-from-tcp-to-ib.md | 198 ++++++++++++++++ 7 files changed, 1161 insertions(+) 这说明博客仓库是非常线性且整洁的 commit 风格——每个 commit 干一件事，diff 都是成篇新增、没有穿插式修改。即使是这种「作者自律良好」的仓库，下文要讲的门禁 Agent 仍然有落点：比如判断 commit message 是否包含主题、draft 文章是否需要补 categories/tags、跨文章引用是否断链等。\n三档决策：warn / block / ask 传统 pre-commit 的决策只有两档：通过 or 拒绝。对 agent 门禁我加一档 ask——它是 agent 相比规则引擎的核心优势。\n档位 触发时机 用户体验 warn 低置信度风险 / 可选改进 提示后放行，不拦 commit block 高置信度问题 / 明显缺失 拦 commit，给出理由 + 修复建议 ask 语义模糊，agent 也拿不准 交互提问，由作者回答决定 pass/block pre-commit 没有 ask 档的原因是：规则引擎不会「迟疑」。agent 会——它应该把自己的迟疑显式暴露给人，而不是硬判一个结果。\n举几个典型落点：\nblock：commit message 只写了 fix —— 明显不合格 warn：diff 里新增了一个 HTTP 调用但没有 timeout —— 可能有风险但不一定 ask：diff 改了 public API 但没有动 README —— 可能是作者打算下个 commit 补，也可能是忘了，直接问 决策树 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 flowchart TD start[git commit] --\u003e hook[pre-commit agent hook] hook --\u003e lint{lint/formatpass?} lint -- No --\u003e block1[block: 规则引擎问题] lint -- Yes --\u003e size{diff 行数?} size -- 超过阈值 --\u003e high[high-risk path] size -- 正常 --\u003e normal[normal path] high --\u003e riskAgent[Risk Agent 分析] riskAgent --\u003e tests{新增测试?} tests -- No --\u003e ask1[ask: 需要补测试吗?] tests -- Yes --\u003e docs{动了 public API?} docs -- Yes \u0026 README 未改 --\u003e ask2[ask: README 要一起改吗?] docs -- 其他 --\u003e msg[msg agent] normal --\u003e msg msg{message 质量?} msg -- 差 --\u003e block2[block: 重写 message] msg -- 中 --\u003e warn1[warn: 建议补细节] msg -- 好 --\u003e pass[✅ pass] ask1 --\u003e userDecide[用户回答 Y/N] ask2 --\u003e userDecide userDecide --\u003e pass 整条路径的核心：把规则引擎能确定的事交给 pre-commit，把需要判断的事交给 agent，agent 再把自己不确定的交还给人。\n一段可执行的 bash wrapper 这段脚本放在 .git/hooks/pre-commit，chmod +x 即可。它先跑原来的 pre-commit（如果有），再调用 agent 门禁：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 #!/usr/bin/env bash # Hybrid pre-commit: rule engine first, then agent gate set -euo pipefail REPO_ROOT=\"$(git rev-parse --show-toplevel)\" cd \"$REPO_ROOT\" # --- Stage 1: 规则引擎 --- if command -v pre-commit \u003e/dev/null 2\u003e\u00261 \u0026\u0026 [ -f .pre-commit-config.yaml ]; then pre-commit run --hook-stage commit --color=always || { echo \"❌ pre-commit 规则引擎拦截\" exit 1 } fi # --- Stage 2: agent 门禁 --- STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR) if [ -z \"$STAGED_FILES\" ]; then exit 0 # 空 commit 交给 git 自己去拒 fi DIFF=$(git diff --cached --no-color) MSG_FILE=\"${1:-.git/COMMIT_EDITMSG}\" MSG=$(cat \"$MSG_FILE\" 2\u003e/dev/null || echo \"\") # 计算改动规模，超阈值走 high-risk 路径 LINES=$(echo \"$DIFF\" | wc -l | tr -d ' ') RISK_MODE=\"normal\"; [ \"$LINES\" -gt 500 ] \u0026\u0026 RISK_MODE=\"high\" # 调 agent；超时 25s（commit 阻塞期必须快） OUT=$(timeout 25 picode run \\ --prompt-file .picode/prompts/commit-gate.md \\ --context \"risk_mode=${RISK_MODE}\" \\ --context-input-stdin \u003c","wordCount":"1023","inLanguage":"en","datePublished":"2026-05-13T15:30:00+08:00","dateModified":"2026-05-13T15:30:00+08:00","author":{"@type":"Person","name":"min920"},"mainEntityOfPage":{"@type":"WebPage","@id":"https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/pre-commit-quality-gate-agent/"},"publisher":{"@type":"Organization","name":"Min的博客","logo":{"@type":"ImageObject","url":"https://wm920.github.io/favicon.ico"}}}</script></head><body id=top><header class=header><nav class=header-nav><div class=logo><a href=https://wm920.github.io/ accesskey=h title="Min的博客 (Alt + H)">Min的博客</a><div class=logo-switches><button id=theme-toggle class=theme-toggle accesskey=t title="(Alt + T)" aria-label="Toggle theme"><svg class="moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg><svg class="sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></button></div></div><ul id=menu class=menu><li><a href=https://wm920.github.io/posts/ title=文章><span>文章</span></a></li><li><a href=https://wm920.github.io/tags/ title=标签><span>标签</span></a></li><li><a href=https://wm920.github.io/search/ title="搜索 (Alt + /)" accesskey=/><span>搜索</span></a></li></ul></nav></header><main class=main><article class=post-single><header class=post-header><nav class=breadcrumbs role=navigation aria-label=Breadcrumb><a href=/>Home</a>
+<svg viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-right"><polyline points="9 18 15 12 9 6"/></svg>
+<a href=/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/>学习笔记</a><svg viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-right"><polyline points="9 18 15 12 9 6"/></svg></nav><h1 class="post-title entry-hint-parent">commit 前的质量门禁 Agent：比 pre-commit hook 聪明一档</h1><div class=post-meta><span title='2026-05-13 15:30:00 +0800 +0800'>May 13, 2026</span>&nbsp;·&nbsp;<span>5 min</span>&nbsp;·&nbsp;<span>1023 words</span>&nbsp;·&nbsp;<span>min920</span></div></header><details class=toc><summary accesskey=c title="(Alt + C)"><span class=title>Table of Contents</span></summary><div class=inner><ul><li><a href=#%e8%b5%b7%e7%82%b9 aria-label=起点>起点</a></li><li><a href=#%e7%9c%9f%e5%ae%9e%e4%bb%93%e5%ba%93%e6%98%af%e5%95%a5%e6%a0%b7 aria-label=真实仓库是啥样>真实仓库是啥样</a></li><li><a href=#%e4%b8%89%e6%a1%a3%e5%86%b3%e7%ad%96warn--block--ask aria-label="三档决策：warn / block / ask">三档决策：warn / block / ask</a></li><li><a href=#%e5%86%b3%e7%ad%96%e6%a0%91 aria-label=决策树>决策树</a></li><li><a href=#%e4%b8%80%e6%ae%b5%e5%8f%af%e6%89%a7%e8%a1%8c%e7%9a%84-bash-wrapper aria-label="一段可执行的 bash wrapper">一段可执行的 bash wrapper</a></li><li><a href=#%e9%85%8d%e5%a5%97-prompt-%e9%aa%a8%e6%9e%b6 aria-label="配套 prompt 骨架">配套 prompt 骨架</a></li><li><a href=#%e8%b7%9f%e4%bc%a0%e7%bb%9f-pre-commit-%e7%9a%84%e5%88%86%e5%b7%a5 aria-label="跟传统 pre-commit 的分工">跟传统 pre-commit 的分工</a></li><li><a href=#%e9%a3%8e%e9%99%a9%e4%b8%8e%e5%9d%91 aria-label=风险与坑>风险与坑</a></li><li><a href=#%e6%80%bb%e7%bb%93 aria-label=总结>总结</a></li></ul></div></details><div class="post-content md-content"><h2 id=起点>起点<a hidden class=anchor aria-hidden=true href=#起点>#</a></h2><p>用过 <a href=https://pre-commit.com/>pre-commit</a> 的人都知道它的甜点区：lint、format、secret scan 这类<strong>确定性检查</strong>，写个 hook 一劳永逸。但用久了也知道它的天花板：</p><ul><li>它看得出代码没过 lint，看不出<strong>这次改动风险高不高</strong></li><li>它看得出测试文件没动，看不出<strong>缺了哪种测试</strong></li><li>它能 reject 空 commit message，reject 不了「fix bug」这种没信息量的 message</li><li>它更看不出<strong>相关文档是不是该一起改</strong></li></ul><p>这些「需要读懂语义」的活儿，刚好是一个 agent 能干的。本文讲我怎么在 pre-commit hook 外面多套一层「质量门禁 Agent」，对改动做三档决策（warn/block/ask），并给一段可直接用的 bash wrapper。</p><h2 id=真实仓库是啥样>真实仓库是啥样<a hidden class=anchor aria-hidden=true href=#真实仓库是啥样>#</a></h2><p>先看我自己这个博客仓库的近况：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span>$ cd ~/blog <span style=color:#f92672>&amp;&amp;</span> git log --oneline -10
+</span></span><span style=display:flex><span>d421b44 docs<span style=color:#f92672>(</span>ddr<span style=color:#f92672>)</span>: 新增进阶文章《DDR 训练流程详解：从 Write Leveling 到 DQ Training》
+</span></span><span style=display:flex><span>ae68199 docs: add article <span style=color:#75715e>#28 - 大代码库检索三件套 grep/glob/explore subagent</span>
+</span></span><span style=display:flex><span>9d807ec docs<span style=color:#f92672>(</span>flexnoc<span style=color:#f92672>)</span>: 新增 FlexNOC 仲裁策略深度解析
+</span></span><span style=display:flex><span>b490e26 draft: code-agent <span style=color:#ae81ff>1</span> - 用 cron + PiCode 让 Agent 每天自动帮我写技术博客
+</span></span><span style=display:flex><span>b2f56af draft: FlexNOC 本地目录页 + RDMA 入门
+</span></span><span style=display:flex><span>325ef60 chore: 从公开仓库移除 FlexNOC NIU 翻译系列（法务合规，本地保留）
+</span></span><span style=display:flex><span>f44060c draft: FlexNOC NIU <span style=color:#ae81ff>14</span> - 协议专篇 OCP NIU <span style=color:#f92672>[</span>中英对照<span style=color:#f92672>]</span>
+</span></span><span style=display:flex><span>293e301 draft: FlexNOC NIU <span style=color:#ae81ff>13</span> - 协议专篇 Write Broadcast Station NIU <span style=color:#f92672>[</span>中英对照<span style=color:#f92672>]</span>
+</span></span><span style=display:flex><span>8f1efd3 draft: FlexNOC NIU <span style=color:#ae81ff>12</span> - 协议专篇 NSP NIU <span style=color:#f92672>[</span>中英对照<span style=color:#f92672>]</span>
+</span></span><span style=display:flex><span>980884f draft: FlexNOC NIU <span style=color:#ae81ff>11</span> - 协议专篇 AXI-Lite NIU <span style=color:#f92672>[</span>中英对照<span style=color:#f92672>]</span>
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">9
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span>$ git diff --stat HEAD~5..HEAD 2&gt;/dev/null | head -20
+</span></span><span style=display:flex><span> content/学习笔记/code-agent/_topics.md             |  <span style=color:#ae81ff>77</span> +++++++
+</span></span><span style=display:flex><span> .../code-agent/auto-blog-with-cron-and-picode.md   | <span style=color:#ae81ff>135</span> +++++++++++
+</span></span><span style=display:flex><span> .../code-agent/search-large-codebase-with-agent.md | <span style=color:#ae81ff>246</span> ++++++++++++++++++++
+</span></span><span style=display:flex><span> content/学习笔记/ddr/ddr-training-flow.md          | <span style=color:#ae81ff>248</span> +++++++++++++++++++++
+</span></span><span style=display:flex><span> content/学习笔记/flexnoc/_index.md                 |  <span style=color:#ae81ff>30</span> +++
+</span></span><span style=display:flex><span> content/学习笔记/flexnoc/flexnoc-arbitration.md    | <span style=color:#ae81ff>227</span> +++++++++++++++++++
+</span></span><span style=display:flex><span> .../学习笔记/rdma/rdma-basics-from-tcp-to-ib.md    | <span style=color:#ae81ff>198</span> ++++++++++++++++
+</span></span><span style=display:flex><span> <span style=color:#ae81ff>7</span> files changed, <span style=color:#ae81ff>1161</span> insertions<span style=color:#f92672>(</span>+<span style=color:#f92672>)</span>
+</span></span></code></pre></td></tr></table></div></div><p>这说明博客仓库是非常线性且整洁的 commit 风格——每个 commit 干一件事，diff 都是成篇新增、没有穿插式修改。即使是这种「作者自律良好」的仓库，下文要讲的门禁 Agent 仍然有落点：比如判断 commit message 是否包含主题、draft 文章是否需要补 categories/tags、跨文章引用是否断链等。</p><h2 id=三档决策warn--block--ask>三档决策：warn / block / ask<a hidden class=anchor aria-hidden=true href=#三档决策warn--block--ask>#</a></h2><p>传统 pre-commit 的决策只有两档：<strong>通过 or 拒绝</strong>。对 agent 门禁我加一档 ask——它是 agent 相比规则引擎的核心优势。</p><table><thead><tr><th>档位</th><th>触发时机</th><th>用户体验</th></tr></thead><tbody><tr><td><strong>warn</strong></td><td>低置信度风险 / 可选改进</td><td>提示后放行，不拦 commit</td></tr><tr><td><strong>block</strong></td><td>高置信度问题 / 明显缺失</td><td>拦 commit，给出理由 + 修复建议</td></tr><tr><td><strong>ask</strong></td><td>语义模糊，agent 也拿不准</td><td>交互提问，由作者回答决定 pass/block</td></tr></tbody></table><p>pre-commit 没有 ask 档的原因是：规则引擎不会「迟疑」。agent 会——它应该把自己的迟疑<strong>显式暴露给人</strong>，而不是硬判一个结果。</p><p>举几个典型落点：</p><ul><li><code>block</code>：commit message 只写了 <code>fix</code> —— 明显不合格</li><li><code>warn</code>：diff 里新增了一个 HTTP 调用但没有 timeout —— 可能有风险但不一定</li><li><code>ask</code>：diff 改了 public API 但没有动 README —— 可能是作者打算下个 commit 补，也可能是忘了，直接问</li></ul><h2 id=决策树>决策树<a hidden class=anchor aria-hidden=true href=#决策树>#</a></h2><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">22
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">23
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">24
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">25
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>flowchart TD
+</span></span><span style=display:flex><span>  start[git commit] --&gt; hook[pre-commit agent hook]
+</span></span><span style=display:flex><span>  hook --&gt; lint{lint/format&lt;br/&gt;pass?}
+</span></span><span style=display:flex><span>  lint -- No --&gt; block1[block: 规则引擎问题]
+</span></span><span style=display:flex><span>  lint -- Yes --&gt; size{diff 行数?}
+</span></span><span style=display:flex><span>  size -- 超过阈值 --&gt; high[high-risk path]
+</span></span><span style=display:flex><span>  size -- 正常 --&gt; normal[normal path]
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  high --&gt; riskAgent[Risk Agent 分析]
+</span></span><span style=display:flex><span>  riskAgent --&gt; tests{新增测试?}
+</span></span><span style=display:flex><span>  tests -- No --&gt; ask1[ask: 需要补测试吗?]
+</span></span><span style=display:flex><span>  tests -- Yes --&gt; docs{动了 public API?}
+</span></span><span style=display:flex><span>  docs -- Yes &amp; README 未改 --&gt; ask2[ask: README 要一起改吗?]
+</span></span><span style=display:flex><span>  docs -- 其他 --&gt; msg[msg agent]
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  normal --&gt; msg
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  msg{message 质量?}
+</span></span><span style=display:flex><span>  msg -- 差 --&gt; block2[block: 重写 message]
+</span></span><span style=display:flex><span>  msg -- 中 --&gt; warn1[warn: 建议补细节]
+</span></span><span style=display:flex><span>  msg -- 好 --&gt; pass[✅ pass]
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  ask1 --&gt; userDecide[用户回答 Y/N]
+</span></span><span style=display:flex><span>  ask2 --&gt; userDecide
+</span></span><span style=display:flex><span>  userDecide --&gt; pass
+</span></span></code></pre></td></tr></table></div></div><p>整条路径的核心：<strong>把规则引擎能确定的事交给 pre-commit，把需要判断的事交给 agent</strong>，agent 再把自己不确定的交还给人。</p><h2 id=一段可执行的-bash-wrapper>一段可执行的 bash wrapper<a hidden class=anchor aria-hidden=true href=#一段可执行的-bash-wrapper>#</a></h2><p>这段脚本放在 <code>.git/hooks/pre-commit</code>，<code>chmod +x</code> 即可。它先跑原来的 pre-commit（如果有），再调用 agent 门禁：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">22
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">23
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">24
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">25
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">26
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">27
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">28
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">29
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">30
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">31
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">32
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">33
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">34
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">35
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">36
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">37
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">38
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">39
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">40
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">41
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">42
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">43
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">44
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">45
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">46
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">47
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">48
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">49
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">50
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">51
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">52
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">53
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">54
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">55
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">56
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">57
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">58
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">59
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">60
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">61
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">62
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">63
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">64
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">65
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">66
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">67
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">68
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">69
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e>#!/usr/bin/env bash
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#75715e># Hybrid pre-commit: rule engine first, then agent gate</span>
+</span></span><span style=display:flex><span>set -euo pipefail
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>REPO_ROOT<span style=color:#f92672>=</span><span style=color:#e6db74>&#34;</span><span style=color:#66d9ef>$(</span>git rev-parse --show-toplevel<span style=color:#66d9ef>)</span><span style=color:#e6db74>&#34;</span>
+</span></span><span style=display:flex><span>cd <span style=color:#e6db74>&#34;</span>$REPO_ROOT<span style=color:#e6db74>&#34;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># --- Stage 1: 规则引擎 ---</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>if</span> command -v pre-commit &gt;/dev/null 2&gt;&amp;<span style=color:#ae81ff>1</span> <span style=color:#f92672>&amp;&amp;</span> <span style=color:#f92672>[</span> -f .pre-commit-config.yaml <span style=color:#f92672>]</span>; <span style=color:#66d9ef>then</span>
+</span></span><span style=display:flex><span>  pre-commit run --hook-stage commit --color<span style=color:#f92672>=</span>always <span style=color:#f92672>||</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    echo <span style=color:#e6db74>&#34;❌ pre-commit 规则引擎拦截&#34;</span>
+</span></span><span style=display:flex><span>    exit <span style=color:#ae81ff>1</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>fi</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># --- Stage 2: agent 门禁 ---</span>
+</span></span><span style=display:flex><span>STAGED_FILES<span style=color:#f92672>=</span><span style=color:#66d9ef>$(</span>git diff --cached --name-only --diff-filter<span style=color:#f92672>=</span>ACMR<span style=color:#66d9ef>)</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>if</span> <span style=color:#f92672>[</span> -z <span style=color:#e6db74>&#34;</span>$STAGED_FILES<span style=color:#e6db74>&#34;</span> <span style=color:#f92672>]</span>; <span style=color:#66d9ef>then</span>
+</span></span><span style=display:flex><span>  exit <span style=color:#ae81ff>0</span>  <span style=color:#75715e># 空 commit 交给 git 自己去拒</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>fi</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>DIFF<span style=color:#f92672>=</span><span style=color:#66d9ef>$(</span>git diff --cached --no-color<span style=color:#66d9ef>)</span>
+</span></span><span style=display:flex><span>MSG_FILE<span style=color:#f92672>=</span><span style=color:#e6db74>&#34;</span><span style=color:#e6db74>${</span>1<span style=color:#66d9ef>:-</span>.git/COMMIT_EDITMSG<span style=color:#e6db74>}</span><span style=color:#e6db74>&#34;</span>
+</span></span><span style=display:flex><span>MSG<span style=color:#f92672>=</span><span style=color:#66d9ef>$(</span>cat <span style=color:#e6db74>&#34;</span>$MSG_FILE<span style=color:#e6db74>&#34;</span> 2&gt;/dev/null <span style=color:#f92672>||</span> echo <span style=color:#e6db74>&#34;&#34;</span><span style=color:#66d9ef>)</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># 计算改动规模，超阈值走 high-risk 路径</span>
+</span></span><span style=display:flex><span>LINES<span style=color:#f92672>=</span><span style=color:#66d9ef>$(</span>echo <span style=color:#e6db74>&#34;</span>$DIFF<span style=color:#e6db74>&#34;</span> | wc -l | tr -d <span style=color:#e6db74>&#39; &#39;</span><span style=color:#66d9ef>)</span>
+</span></span><span style=display:flex><span>RISK_MODE<span style=color:#f92672>=</span><span style=color:#e6db74>&#34;normal&#34;</span>; <span style=color:#f92672>[</span> <span style=color:#e6db74>&#34;</span>$LINES<span style=color:#e6db74>&#34;</span> -gt <span style=color:#ae81ff>500</span> <span style=color:#f92672>]</span> <span style=color:#f92672>&amp;&amp;</span> RISK_MODE<span style=color:#f92672>=</span><span style=color:#e6db74>&#34;high&#34;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># 调 agent；超时 25s（commit 阻塞期必须快）</span>
+</span></span><span style=display:flex><span>OUT<span style=color:#f92672>=</span><span style=color:#66d9ef>$(</span>timeout <span style=color:#ae81ff>25</span> picode run <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>  --prompt-file .picode/prompts/commit-gate.md <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>  --context <span style=color:#e6db74>&#34;risk_mode=</span><span style=color:#e6db74>${</span>RISK_MODE<span style=color:#e6db74>}</span><span style=color:#e6db74>&#34;</span> <span style=color:#ae81ff>\
+</span></span></span><span style=display:flex><span><span style=color:#ae81ff></span>  --context-input-stdin <span style=color:#e6db74>&lt;&lt;EOF
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>STAGED_FILES:
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>$STAGED_FILES
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>COMMIT_MESSAGE:
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>$MSG
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>DIFF (first 2000 lines):
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>$(echo &#34;$DIFF&#34; | head -2000)
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>EOF</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>)</span> <span style=color:#f92672>||</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>  echo <span style=color:#e6db74>&#34;⚠️  agent 门禁超时/失败，fail-open 放行（不拦 commit）&#34;</span>
+</span></span><span style=display:flex><span>  exit <span style=color:#ae81ff>0</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># 约定 agent 输出第一行是决策：PASS / WARN / BLOCK / ASK</span>
+</span></span><span style=display:flex><span>DECISION<span style=color:#f92672>=</span><span style=color:#66d9ef>$(</span>echo <span style=color:#e6db74>&#34;</span>$OUT<span style=color:#e6db74>&#34;</span> | head -1 | awk <span style=color:#e6db74>&#39;{print $1}&#39;</span><span style=color:#66d9ef>)</span>
+</span></span><span style=display:flex><span>BODY<span style=color:#f92672>=</span><span style=color:#66d9ef>$(</span>echo <span style=color:#e6db74>&#34;</span>$OUT<span style=color:#e6db74>&#34;</span> | tail -n +2<span style=color:#66d9ef>)</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>case</span> <span style=color:#e6db74>&#34;</span>$DECISION<span style=color:#e6db74>&#34;</span> in
+</span></span><span style=display:flex><span>  PASS<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    exit <span style=color:#ae81ff>0</span> ;;
+</span></span><span style=display:flex><span>  WARN<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    echo <span style=color:#e6db74>&#34;⚠️  WARN:&#34;</span>; echo <span style=color:#e6db74>&#34;</span>$BODY<span style=color:#e6db74>&#34;</span>
+</span></span><span style=display:flex><span>    exit <span style=color:#ae81ff>0</span> ;;
+</span></span><span style=display:flex><span>  BLOCK<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    echo <span style=color:#e6db74>&#34;❌ BLOCK:&#34;</span>; echo <span style=color:#e6db74>&#34;</span>$BODY<span style=color:#e6db74>&#34;</span>
+</span></span><span style=display:flex><span>    exit <span style=color:#ae81ff>1</span> ;;
+</span></span><span style=display:flex><span>  ASK<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    echo <span style=color:#e6db74>&#34;❓ ASK:&#34;</span>; echo <span style=color:#e6db74>&#34;</span>$BODY<span style=color:#e6db74>&#34;</span>
+</span></span><span style=display:flex><span>    read -p <span style=color:#e6db74>&#34;继续 commit? [y/N] &#34;</span> REPLY &lt;/dev/tty
+</span></span><span style=display:flex><span>    <span style=color:#f92672>[[</span> <span style=color:#e6db74>&#34;</span>$REPLY<span style=color:#e6db74>&#34;</span> <span style=color:#f92672>=</span>~ ^<span style=color:#f92672>[</span>Yy<span style=color:#f92672>]</span>$ <span style=color:#f92672>]]</span> <span style=color:#f92672>&amp;&amp;</span> exit <span style=color:#ae81ff>0</span> <span style=color:#f92672>||</span> exit <span style=color:#ae81ff>1</span> ;;
+</span></span><span style=display:flex><span>  *<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    echo <span style=color:#e6db74>&#34;⚠️  agent 返回未知决策，fail-open&#34;</span>
+</span></span><span style=display:flex><span>    exit <span style=color:#ae81ff>0</span> ;;
+</span></span><span style=display:flex><span><span style=color:#66d9ef>esac</span>
+</span></span></code></pre></td></tr></table></div></div><p>几个设计细节：</p><ol><li><strong>fail-open</strong>：agent 超时或失败时放行。commit 阻塞期的 UX 要求「宁放过不错杀」，让人提交失败比让 agent 漏判一次代价更高。规则引擎那层已经兜住大部分硬错，agent 只是增值。</li><li><strong>25s 超时</strong>：实测单次 LLM 调用 8–15s，给 25s 能覆盖 p95；超过这个时长用户心态开始崩。</li><li><strong>diff 只传前 2000 行</strong>：大 commit agent 也看不过来，而且这种 commit 本身就该被拦。把截断阈值显式暴露出来，比偷偷截断清楚得多。</li><li><strong>决策格式在首行</strong>：单行协议比 JSON 解析更稳，LLM 偶尔不输出合法 JSON 能容忍。</li></ol><h2 id=配套-prompt-骨架>配套 prompt 骨架<a hidden class=anchor aria-hidden=true href=#配套-prompt-骨架>#</a></h2><p><code>.picode/prompts/commit-gate.md</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">22
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-text data-lang=text><span style=display:flex><span>你是一名 commit 质量门禁。你的输出必须第一行是决策，第二行起是理由与建议。
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>合法决策：
+</span></span><span style=display:flex><span>  PASS   — 没问题，放行
+</span></span><span style=display:flex><span>  WARN   — 有可选改进，但不阻塞
+</span></span><span style=display:flex><span>  BLOCK  — 必须修；给出具体修复建议
+</span></span><span style=display:flex><span>  ASK    — 你拿不准，把问题抛给用户；问题必须是可 Y/N 的单句
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>检查项（按序执行，找到高置信度问题就输出 BLOCK；否则继续；全过则 PASS）：
+</span></span><span style=display:flex><span>  1. commit message 是否包含动词+主体，长度 ≥ 10 字符，非 &#34;fix&#34; / &#34;update&#34; / &#34;wip&#34;
+</span></span><span style=display:flex><span>  2. diff 是否包含明显的秘密（AKID/PRIVATE KEY/password=）
+</span></span><span style=display:flex><span>  3. diff 是否改了 public API（导出函数、package.json exports、Makefile target、README 引用命令）
+</span></span><span style=display:flex><span>     - 若改了，但测试目录无新增/修改 → ASK: 是否需要补测试？
+</span></span><span style=display:flex><span>     - 若改了，但 README 无修改 → ASK: README 是否需要同步？
+</span></span><span style=display:flex><span>  4. diff 行数 &gt; 500 且 commit 描述无「重构/批量」字样 → WARN 建议拆分
+</span></span><span style=display:flex><span>  5. 含 TODO/FIXME/xxx/print 调试语句 → WARN
+</span></span><span style=display:flex><span>  6. 新增网络调用 (fetch/http.Get/requests.get) 但无 timeout/error handling → WARN
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>禁止：
+</span></span><span style=display:flex><span>  - 不要分析代码风格（交给 linter）
+</span></span><span style=display:flex><span>  - 不要改写 commit message，只提建议
+</span></span><span style=display:flex><span>  - 不要在 ASK 里一次问多个问题；只问最重要的一条
+</span></span></code></pre></td></tr></table></div></div><h2 id=跟传统-pre-commit-的分工>跟传统 pre-commit 的分工<a hidden class=anchor aria-hidden=true href=#跟传统-pre-commit-的分工>#</a></h2><table><thead><tr><th>工作</th><th>规则引擎</th><th>Agent</th></tr></thead><tbody><tr><td>lint / format / type check</td><td>✅</td><td>❌（浪费）</td></tr><tr><td>secret scan（正则匹配）</td><td>✅</td><td>❌</td></tr><tr><td>commit message 格式（Conventional Commits）</td><td>✅</td><td>❌</td></tr><tr><td>commit message 语义是否空洞</td><td>❌</td><td>✅</td></tr><tr><td>改动风险评估（网络调用无 timeout 之类）</td><td>❌</td><td>✅</td></tr><tr><td>测试缺失判断（哪种测试该有）</td><td>❌</td><td>✅</td></tr><tr><td>README 同步提醒</td><td>❌</td><td>✅</td></tr><tr><td>大 diff 拆分建议</td><td>❌</td><td>✅</td></tr></tbody></table><p>核心认知：<strong>两者不是替代关系，是串联关系</strong>。规则引擎先跑，把确定的事解决；agent 接着跑，只处理需要判断的部分。颠倒顺序（agent 在前）会浪费 token 并拉长阻塞时间。</p><h2 id=风险与坑>风险与坑<a hidden class=anchor aria-hidden=true href=#风险与坑>#</a></h2><ul><li><strong>阻塞期延长</strong>：agent 一次调用至少几秒，commit 从「秒级」变「十秒级」。对重 commit 用户来说是明显退化。缓解：把 agent 做成 <code>--no-verify</code> 可跳、做成 commit-msg hook（先写完再校）而非 pre-commit（暂存就校）。</li><li><strong>误拦</strong>：agent 把正常 commit 判成 BLOCK。缓解：先灰度 2 周只跑 WARN / ASK，观察准确率，稳了再启用 BLOCK；保留 <code>SKIP_AGENT_GATE=1 git commit</code> 逃生口。</li><li><strong>agent 漂移</strong>：同样的 diff 每次判决不同。缓解：固定模型 + 固定 temperature=0；把 prompt 纳入版本控制，变更走 PR review。</li><li><strong>成本</strong>：每个 commit 一次调用。缓解：仅当 diff > 某阈值或触及敏感目录时才调 agent；文档-only commit（全是 <code>.md</code>）跳过。</li><li><strong>敏感信息泄露</strong>：diff 直接喂给外部 LLM 有合规风险。缓解：接公司自建模型 / 本地模型；或在 prompt 前加一层 token scrubber。</li></ul><h2 id=总结>总结<a hidden class=anchor aria-hidden=true href=#总结>#</a></h2><p>把 pre-commit 从「规则引擎」升级为「规则 + agent 双层」，代价是每次 commit 多几秒，收益是能挡住一类传统 hook 挡不住的「语义级漏网」。关键设计不是 agent 多聪明，而是<strong>三档决策 + fail-open + 规则引擎在前</strong>——让 agent 只在它有把握的区域发声，其余时候让路。</p><p>对于个人仓库（比如我这个博客），这套门禁能稳定拦下「commit message 写了 <code>wip</code>」「draft 文章缺 tags」「跨文章链接失效」这类低级错误；对于团队仓库，它的 ROI 更高——越是多人协作，语义级漂移越容易积累，agent 的边际收益就越大。</p><hr><blockquote><p>作者：min920（GitHub @wm920） · 本文由 PiCode Agent 自动撰写并经作者审核</p></blockquote></div><footer class=post-footer><ul class=post-tags><li><a href=https://wm920.github.io/tags/code-agent/>Code-Agent</a></li><li><a href=https://wm920.github.io/tags/multi-agent/>Multi-Agent</a></li><li><a href=https://wm920.github.io/tags/git/>Git</a></li><li><a href=https://wm920.github.io/tags/pre-commit/>Pre-Commit</a></li><li><a href=https://wm920.github.io/tags/workflow/>Workflow</a></li><li><a href=https://wm920.github.io/tags/picode/>Picode</a></li></ul><nav class=paginav><a class=prev href=https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/onboarding-agent-opentitan-tour/><span class=title>« Prev</span>
+<span>新人 onboarding agent：带新人逛一遍 OpenTitan</span>
+</a><a class=next href=https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/ai-debug-ci-failure/><span class=title>Next »</span>
+<span>「AI 帮我看 CI 失败」完整复盘——一次真实的 debug 链路</span></a></nav></footer></article></main><footer class=footer><span>&copy; 2026 <a href=https://wm920.github.io/>Min的博客</a></span> ·
+<span>Powered by
+<a href="https://gohugo.io/?utm_source=papermod" rel=noopener target=_blank>Hugo</a> &
+        <a href=https://github.com/adityatelange/hugo-PaperMod/ rel=noopener target=_blank>PaperMod</a></span></footer><a href=#top id=top-link class="top-link hidden" aria-label="go to top" title="Go to Top (Alt + G)" accesskey=g><svg viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevrons-up"><polyline points="17 11 12 6 7 11"/><polyline points="17 18 12 13 7 18"/></svg>
+</a><script>let menu=document.getElementById("menu");if(menu){const e=localStorage.getItem("menu-scroll-position");e&&(menu.scrollLeft=parseInt(e,10)),menu.onscroll=function(){localStorage.setItem("menu-scroll-position",menu.scrollLeft)}}document.querySelectorAll('a[href^="#"]').forEach(e=>{e.addEventListener("click",function(e){e.preventDefault();var t=this.getAttribute("href").substr(1);window.matchMedia("(prefers-reduced-motion: reduce)").matches?document.querySelector(`[id='${decodeURIComponent(t)}']`).scrollIntoView():document.querySelector(`[id='${decodeURIComponent(t)}']`).scrollIntoView({behavior:"smooth"}),t==="top"?history.replaceState(null,null," "):history.pushState(null,null,`#${t}`)})})</script><script>var toplink=document.getElementById("top-link");window.onscroll=function(){const e=window.innerHeight;document.body.scrollTop>e||document.documentElement.scrollTop>e?toplink.classList.remove("hidden"):toplink.classList.add("hidden")}</script><script>document.getElementById("theme-toggle").addEventListener("click",()=>{const e=document.querySelector("html");e.dataset.theme==="dark"?(e.dataset.theme="light",localStorage.setItem("pref-theme","light")):(e.dataset.theme="dark",localStorage.setItem("pref-theme","dark"))})</script><script>document.querySelectorAll("pre > code").forEach(e=>{const n=e.parentNode.parentNode,t=document.createElement("button");t.classList.add("copy-code"),t.innerHTML="copy";function s(){t.innerHTML="copied!",setTimeout(()=>{t.innerHTML="copy"},2e3)}t.addEventListener("click",t=>{if("clipboard"in navigator){navigator.clipboard.writeText(e.textContent),s();return}const n=document.createRange();n.selectNodeContents(e);const o=window.getSelection();o.removeAllRanges(),o.addRange(n);try{document.execCommand("copy"),s()}catch{}o.removeRange(n)}),n.classList.contains("highlight")?n.appendChild(t):n.parentNode.firstChild==n||(e.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName=="TABLE"?e.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(t):e.parentNode.appendChild(t))})</script></body></html>

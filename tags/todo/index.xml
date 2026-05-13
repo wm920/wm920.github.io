@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Todo on Min的博客</title><link>https://wm920.github.io/tags/todo/</link><description>Recent content in Todo on Min的博客</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Wed, 13 May 2026 13:00:00 +0800</lastBuildDate><atom:link href="https://wm920.github.io/tags/todo/index.xml" rel="self" type="application/rss+xml"/><item><title>todo_write 用对的姿势：什么时候拉 list，什么时候别</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/todo-write-right-way/</link><pubDate>Wed, 13 May 2026 13:00:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/todo-write-right-way/</guid><description>&lt;h2 id="起因一个被滥用的工具">起因：一个被滥用的工具&lt;/h2>
+&lt;p>用过 Claude Code / PiCode 的人都见过这个输出：&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span style="display:flex;">&lt;span>[&lt;span style="color:#f92672">&amp;gt;&lt;/span>] Writing plan&lt;span style="color:#f92672">-&lt;/span>mode&lt;span style="color:#f92672">-&lt;/span>when&lt;span style="color:#f92672">-&lt;/span>useful&lt;span style="color:#f92672">.&lt;/span>md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>[ ] Write picode&lt;span style="color:#f92672">-&lt;/span>use&lt;span style="color:#f92672">-&lt;/span>skill&lt;span style="color:#f92672">-&lt;/span>lazy&lt;span style="color:#f92672">-&lt;/span>load&lt;span style="color:#f92672">.&lt;/span>md (&lt;span style="color:#75715e">#26)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>[ ] Write todo&lt;span style="color:#f92672">-&lt;/span>write&lt;span style="color:#f92672">-&lt;/span>right&lt;span style="color:#f92672">-&lt;/span>way&lt;span style="color:#f92672">.&lt;/span>md (&lt;span style="color:#75715e">#27)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>[ ] Write memory&lt;span style="color:#f92672">-&lt;/span>what&lt;span style="color:#f92672">-&lt;/span>to&lt;span style="color:#f92672">-&lt;/span>store&lt;span style="color:#f92672">.&lt;/span>md (&lt;span style="color:#75715e">#30)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这是 &lt;code>todo_write&lt;/code> 工具吐出来的进度清单。好东西，但我见过两种误用：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>问它改一行代码，它都要先拉一个 3 项的 todo&lt;/strong>——累赘&lt;/li>
+&lt;li>&lt;strong>让它做一个 8 步的 migration，它一个 todo 都不拉&lt;/strong>——中途忘了自己在干嘛&lt;/li>
+&lt;/ol>
+&lt;p>todo_write 的真实作用不是给 agent 自己用的——是&lt;strong>给你（用户）进度可见性&lt;/strong>，顺带给 agent 一个「task 边界约束」。想清楚这个定位，3 条规则就都好推了。&lt;/p>
+&lt;h2 id="规则-13-个非平凡步骤才开-todo">规则 1：≥3 个非平凡步骤才开 todo&lt;/h2>
+&lt;p>什么叫「非平凡步骤」？&lt;strong>每一步都需要一轮以上的工具调用或独立判断&lt;/strong>。不包括：&lt;/p>
+&lt;ul>
+&lt;li>读一个文件&lt;/li>
+&lt;li>回答一个问题&lt;/li>
+&lt;li>改一行代码&lt;/li>
+&lt;/ul>
+&lt;p>举两个反例：&lt;/p></description></item></channel></rss>

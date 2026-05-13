@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Codebase-Search on Min的博客</title><link>https://wm920.github.io/tags/codebase-search/</link><description>Recent content in Codebase-Search on Min的博客</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Tue, 12 May 2026 15:00:00 +0800</lastBuildDate><atom:link href="https://wm920.github.io/tags/codebase-search/index.xml" rel="self" type="application/rss+xml"/><item><title>大代码库检索三件套：grep / glob / explore subagent</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/search-large-codebase-with-agent/</link><pubDate>Tue, 12 May 2026 15:00:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/search-large-codebase-with-agent/</guid><description>&lt;h2 id="问题">问题&lt;/h2>
+&lt;p>你让 Code Agent 帮你在一个 10 万行的仓库里找某个函数的调用链、定位某段错误日志的来源、或者弄清一个模块的文件结构。Agent 拿到任务后疯狂 &lt;code>read_file&lt;/code>，一个文件一个文件地打开，context 窗口很快撑满，答案还没找到。&lt;/p>
+&lt;p>这不是 agent 笨，而是&lt;strong>没用对检索工具&lt;/strong>。Code Agent（PiCode / Claude Code 等）内置了三种不同粒度的代码搜索手段，各有适用场景。本文用实际操作把它们拆清楚。&lt;/p>
+&lt;h2 id="三件套速查">三件套速查&lt;/h2>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>工具&lt;/th>
+&lt;th>用途&lt;/th>
+&lt;th>类比&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>&lt;code>grep_file&lt;/code>&lt;/td>
+&lt;td>在文件内容中做正则匹配&lt;/td>
+&lt;td>&lt;code>rg&lt;/code>（ripgrep）&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>glob_file&lt;/code>&lt;/td>
+&lt;td>按文件名模式查找路径&lt;/td>
+&lt;td>&lt;code>find -name&lt;/code> / &lt;code>ls **/*.v&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>task(explore)&lt;/code>&lt;/td>
+&lt;td>启动一个只读子 agent 做深度搜索&lt;/td>
+&lt;td>派一个实习生去翻代码，回来汇报&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>三者不是互斥的——实际任务里往往是组合使用：先 glob 找到目录结构，再 grep 缩小范围，最后用 explore subagent 做跨文件的语义串联。&lt;/p>
+&lt;h2 id="第一招grep_file">第一招：grep_file&lt;/h2>
+&lt;h3 id="基本用法">基本用法&lt;/h3>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>grep_file(pattern=&amp;#34;AXI_RESP_SLVERR&amp;#34;, path=&amp;#34;rtl/&amp;#34;, type=&amp;#34;v&amp;#34;)
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>等价于在终端跑 &lt;code>rg &amp;quot;AXI_RESP_SLVERR&amp;quot; rtl/ -t verilog&lt;/code>，但不需要你手动解析输出——agent 拿到结果后直接推理。&lt;/p>
+&lt;h3 id="关键参数">关键参数&lt;/h3>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>参数&lt;/th>
+&lt;th>作用&lt;/th>
+&lt;th>示例&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>&lt;code>output_mode&lt;/code>&lt;/td>
+&lt;td>&lt;code>files_with_matches&lt;/code>（默认，只返路径）/ &lt;code>content&lt;/code>（返回匹配行+上下文）/ &lt;code>count&lt;/code>（计数）&lt;/td>
+&lt;td>先 files_with_matches 定位，再 content 看细节&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>context_lines&lt;/code>&lt;/td>
+&lt;td>匹配行前后各显示 N 行&lt;/td>
+&lt;td>看函数签名一般给 3-5&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>case_insensitive&lt;/code>&lt;/td>
+&lt;td>大小写不敏感&lt;/td>
+&lt;td>搜日志信息时常用&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>type&lt;/code>&lt;/td>
+&lt;td>限定文件类型&lt;/td>
+&lt;td>&lt;code>&amp;quot;py&amp;quot;&lt;/code> / &lt;code>&amp;quot;v&amp;quot;&lt;/code> / &lt;code>&amp;quot;rs&amp;quot;&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>glob&lt;/code>&lt;/td>
+&lt;td>限定文件名模式&lt;/td>
+&lt;td>&lt;code>&amp;quot;*.sv&amp;quot;&lt;/code> / &lt;code>&amp;quot;*_test.go&amp;quot;&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>head_limit&lt;/code> + &lt;code>offset&lt;/code>&lt;/td>
+&lt;td>分页&lt;/td>
+&lt;td>结果太多时只看前 10 条&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>multiline&lt;/code>&lt;/td>
+&lt;td>跨行匹配&lt;/td>
+&lt;td>匹配跨两行的函数定义&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h3 id="实战追踪一个错误码">实战：追踪一个错误码&lt;/h3>
+&lt;p>场景：CI 日志里出现 &lt;code>error code 0xDEAD&lt;/code>，你想知道是哪个模块产生的。&lt;/p></description></item></channel></rss>

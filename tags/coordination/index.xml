@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Coordination on Min的博客</title><link>https://wm920.github.io/tags/coordination/</link><description>Recent content in Coordination on Min的博客</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Wed, 13 May 2026 23:00:00 +0800</lastBuildDate><atom:link href="https://wm920.github.io/tags/coordination/index.xml" rel="self" type="application/rss+xml"/><item><title>共享 task list vs send_message：多 agent 协作通信怎么选</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/shared-tasklist-vs-sendmessage/</link><pubDate>Wed, 13 May 2026 23:00:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/shared-tasklist-vs-sendmessage/</guid><description>&lt;p>多 agent 协作永远绕不开一个问题：&lt;strong>agent 之间怎么说话？&lt;/strong>&lt;/p>
+&lt;p>PiCode 给了两种原语：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>共享 task list&lt;/strong>（todo_write / todo_read）：所有 agent 看同一张列表，状态就是通信&lt;/li>
+&lt;li>&lt;strong>send_message&lt;/strong>：agent 对 agent 定向递一张纸条&lt;/li>
+&lt;/ul>
+&lt;p>二选一，或者混用？本文拆三个维度比较，再给三个真实场景的推荐。&lt;/p>
+&lt;h2 id="原语长什么样">原语长什么样&lt;/h2>
+&lt;p>先用最小的样例把两者摆出来。&lt;/p>
+&lt;p>&lt;strong>共享 task list&lt;/strong>——任何 agent 都能写、任何 agent 都能读：&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>- [completed] 拉取 picorv32 仓库
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>- [in_progress] 跑 baseline 测试
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>- [pending] 分析失败的 3 个 case
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>- [pending] 写 fix 并 PR
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;strong>send_message&lt;/strong>——定向发给某个 agent：&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>send_message(to=&amp;#34;sa-660e02b0&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> subject=&amp;#34;baseline 已跑完&amp;#34;,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> body=&amp;#34;log 在 ~/.tmp/cache/baseline.log，失败 3 个&amp;#34;)
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>两者不是互斥的，但使用模式完全不同。前者像一张公共白板，后者像 IM 私聊。&lt;/p></description></item></channel></rss>

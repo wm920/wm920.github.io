@@ -1,1 +1,871 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>PiCode on Min的博客</title><link>https://wm920.github.io/tags/picode/</link><description>Recent content in PiCode on Min的博客</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Sun, 10 May 2026 00:00:00 +0000</lastBuildDate><atom:link href="https://wm920.github.io/tags/picode/index.xml" rel="self" type="application/rss+xml"/><item><title>如何高效使用 Code Agent：以 PiCode 为例的实用指南</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/ai-tools/code-agent-tips/</link><pubDate>Sun, 10 May 2026 00:00:00 +0000</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/ai-tools/code-agent-tips/</guid><description>从沟通技巧到实战场景，系统介绍如何与 Code Agent 协作，让 AI 真正成为你的得力助手。</description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Picode on Min的博客</title><link>https://wm920.github.io/tags/picode/</link><description>Recent content in Picode on Min的博客</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Wed, 13 May 2026 22:50:00 +0800</lastBuildDate><atom:link href="https://wm920.github.io/tags/picode/index.xml" rel="self" type="application/rss+xml"/><item><title>总指挥 + 专家团：让 4 个 agent 写完本文（meta 演示）</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/team-spawn-meta-demo/</link><pubDate>Wed, 13 May 2026 22:50:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/team-spawn-meta-demo/</guid><description>&lt;p>这篇文章本身就是一个 meta 演示：你现在读到的每一段文字、每一张图、每一个命令输出，都不是由一个 agent 一次性生成的，而是由一支 4 人「专家团」分工完成。总指挥（主 agent）把一篇博文拆成&lt;strong>大纲、写作、审阅、配图&lt;/strong>四个角色，用 &lt;code>task(background=true)&lt;/code> 同时派发给 4 个 sub-agent，最后统稿落盘。&lt;/p>
+&lt;p>为什么要这么搞？因为一个人干三件事的时候必然偷工——让同一个 agent 既要构思、又要写正文、又要挑毛病，它会在三件事之间来回切换，最后三件都做得七分。拆开以后，每个角色只对自己那一件事负责，标准就立得起来。&lt;/p>
+&lt;h2 id="起点一个人写一篇文章的瓶颈">起点：一个人写一篇文章的瓶颈&lt;/h2>
+&lt;p>我之前写 code-agent 系列的第一批文章时，是让一个 sub-agent 从大纲到成稿全包。实测下来，2500 字以上的文章会出现几个稳定问题：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>结构头重脚轻&lt;/strong>：前 40% 的篇幅还在铺垫，后面仓促收尾&lt;/li>
+&lt;li>&lt;strong>自审极宽松&lt;/strong>：自己写的东西，它很难挑出问题，顶多改改错别字&lt;/li>
+&lt;li>&lt;strong>命令输出经常造假&lt;/strong>：写到需要 &lt;code>git log&lt;/code> 输出的段落，它不去跑命令，直接编一段像模像样的 SHA&lt;/li>
+&lt;/ul>
+&lt;p>第三条最致命。规范里明明写了「严禁捏造命令输出」，但当一个 agent 同时扛着&amp;quot;写到某某位置&amp;quot;的任务压力时，它会在心里默默把「造假」的权重调低到「凑字数」之下。&lt;/p>
+&lt;p>解决思路很直接：让写作的 agent 没有权限也没有动机去跑命令，而让另一个只负责采集真实输出的 agent 把命令结果摆在桌面上。这就是角色拆分的起点。&lt;/p>
+&lt;h2 id="四个角色outliner--writer--reviewer--illustrator">四个角色：Outliner / Writer / Reviewer / Illustrator&lt;/h2>
+&lt;p>用一张表看得最清楚：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>角色&lt;/th>
+&lt;th>单一职责&lt;/th>
+&lt;th>输入&lt;/th>
+&lt;th>输出&lt;/th>
+&lt;th>禁止&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>Outliner&lt;/td>
+&lt;td>出大纲&lt;/td>
+&lt;td>选题 + 读者画像&lt;/td>
+&lt;td>章节清单 + 每节 bullet&lt;/td>
+&lt;td>写正文、写代码块&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Illustrator&lt;/td>
+&lt;td>跑命令、画图&lt;/td>
+&lt;td>大纲中标注的素材点&lt;/td>
+&lt;td>真实命令输出 + mermaid/表格&lt;/td>
+&lt;td>改文字、编输出&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Writer&lt;/td>
+&lt;td>依大纲写正文&lt;/td>
+&lt;td>大纲 + Illustrator 产物&lt;/td>
+&lt;td>正文 markdown&lt;/td>
+&lt;td>修改大纲、替换命令输出&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Reviewer&lt;/td>
+&lt;td>审稿&lt;/td>
+&lt;td>Writer 的稿&lt;/td>
+&lt;td>问题清单（不直接改）&lt;/td>
+&lt;td>静默通过、自己动手改&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>关键点有两个：&lt;/p></description></item><item><title>多角色协作的 5 个反模式：哪些活真的不该拆</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/multi-agent-anti-patterns/</link><pubDate>Wed, 13 May 2026 20:00:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/multi-agent-anti-patterns/</guid><description>&lt;h2 id="起点">起点&lt;/h2>
+&lt;p>「多 agent」最近被讲得几乎等同于「更强的 agent」，一个活儿只要拆出 3–5 个角色就显得更高级。我这套博客流水线一开始也踩过同样的坑——把选题、调研、写作、review、发布拆成五个 subagent，流程图画得漂亮，实际跑起来一天里有一半时间花在「agent 之间翻译来翻译去」上。后来砍回到 2–3 个稳定角色，反而效率翻倍。&lt;/p>
+&lt;p>这篇和上一篇《single agent vs role split》是姊妹篇：那篇讲「什么时候值得拆」，这篇讲「拆了以后踩过的坑」。5 个反模式我都&lt;strong>自己撞过&lt;/strong>，不是看别人吐槽来的。&lt;/p>
+&lt;p>先看一个真实的 task list，这是当前 sub-agent 调度器的快照：&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-text" data-lang="text">&lt;span style="display:flex;">&lt;span>Background sub-agents:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> task_id status elapsed description
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ----------------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> sa-572e8b76 completed 227 Batch 1: C类4篇
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> sa-0b9a118a completed 200 Batch 2: C类4篇
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> sa-8bd98f25 completed 122 Batch 3: A类2篇
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> sa-c113d11c running 28 A批次1: #2/3/4/5
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> sa-660e02b0 running 16 A批次2: #6/8/9/10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> sa-0720197a running 0 B-picorv32+wbuart32 3篇
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这张表本身就是一个设计决策的结果：6 个 subagent 并行、每个负责 3–4 篇独立文章、文件边界不重叠。如果你看到的是「sa-001 写大纲、sa-002 翻译、sa-003 校对、sa-004 格式化」这种流水线式拆法，下文第一个反模式就会直接命中。&lt;/p></description></item><item><title>commit 前的质量门禁 Agent：比 pre-commit hook 聪明一档</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/pre-commit-quality-gate-agent/</link><pubDate>Wed, 13 May 2026 15:30:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/pre-commit-quality-gate-agent/</guid><description>&lt;h2 id="起点">起点&lt;/h2>
+&lt;p>用过 &lt;a href="https://pre-commit.com/">pre-commit&lt;/a> 的人都知道它的甜点区：lint、format、secret scan 这类&lt;strong>确定性检查&lt;/strong>，写个 hook 一劳永逸。但用久了也知道它的天花板：&lt;/p>
+&lt;ul>
+&lt;li>它看得出代码没过 lint，看不出&lt;strong>这次改动风险高不高&lt;/strong>&lt;/li>
+&lt;li>它看得出测试文件没动，看不出&lt;strong>缺了哪种测试&lt;/strong>&lt;/li>
+&lt;li>它能 reject 空 commit message，reject 不了「fix bug」这种没信息量的 message&lt;/li>
+&lt;li>它更看不出&lt;strong>相关文档是不是该一起改&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;p>这些「需要读懂语义」的活儿，刚好是一个 agent 能干的。本文讲我怎么在 pre-commit hook 外面多套一层「质量门禁 Agent」，对改动做三档决策（warn/block/ask），并给一段可直接用的 bash wrapper。&lt;/p>
+&lt;h2 id="真实仓库是啥样">真实仓库是啥样&lt;/h2>
+&lt;p>先看我自己这个博客仓库的近况：&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ cd ~/blog &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> git log --oneline -10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>d421b44 docs&lt;span style="color:#f92672">(&lt;/span>ddr&lt;span style="color:#f92672">)&lt;/span>: 新增进阶文章《DDR 训练流程详解：从 Write Leveling 到 DQ Training》
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ae68199 docs: add article &lt;span style="color:#75715e">#28 - 大代码库检索三件套 grep/glob/explore subagent&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>9d807ec docs&lt;span style="color:#f92672">(&lt;/span>flexnoc&lt;span style="color:#f92672">)&lt;/span>: 新增 FlexNOC 仲裁策略深度解析
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>b490e26 draft: code-agent &lt;span style="color:#ae81ff">1&lt;/span> - 用 cron + PiCode 让 Agent 每天自动帮我写技术博客
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>b2f56af draft: FlexNOC 本地目录页 + RDMA 入门
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>325ef60 chore: 从公开仓库移除 FlexNOC NIU 翻译系列（法务合规，本地保留）
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>f44060c draft: FlexNOC NIU &lt;span style="color:#ae81ff">14&lt;/span> - 协议专篇 OCP NIU &lt;span style="color:#f92672">[&lt;/span>中英对照&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>293e301 draft: FlexNOC NIU &lt;span style="color:#ae81ff">13&lt;/span> - 协议专篇 Write Broadcast Station NIU &lt;span style="color:#f92672">[&lt;/span>中英对照&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>8f1efd3 draft: FlexNOC NIU &lt;span style="color:#ae81ff">12&lt;/span> - 协议专篇 NSP NIU &lt;span style="color:#f92672">[&lt;/span>中英对照&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>980884f draft: FlexNOC NIU &lt;span style="color:#ae81ff">11&lt;/span> - 协议专篇 AXI-Lite NIU &lt;span style="color:#f92672">[&lt;/span>中英对照&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ git diff --stat HEAD~5..HEAD 2&amp;gt;/dev/null | head -20
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> content/学习笔记/code-agent/_topics.md | &lt;span style="color:#ae81ff">77&lt;/span> +++++++
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> .../code-agent/auto-blog-with-cron-and-picode.md | &lt;span style="color:#ae81ff">135&lt;/span> +++++++++++
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> .../code-agent/search-large-codebase-with-agent.md | &lt;span style="color:#ae81ff">246&lt;/span> ++++++++++++++++++++
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> content/学习笔记/ddr/ddr-training-flow.md | &lt;span style="color:#ae81ff">248&lt;/span> +++++++++++++++++++++
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> content/学习笔记/flexnoc/_index.md | &lt;span style="color:#ae81ff">30&lt;/span> +++
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> content/学习笔记/flexnoc/flexnoc-arbitration.md | &lt;span style="color:#ae81ff">227&lt;/span> +++++++++++++++++++
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> .../学习笔记/rdma/rdma-basics-from-tcp-to-ib.md | &lt;span style="color:#ae81ff">198&lt;/span> ++++++++++++++++
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">7&lt;/span> files changed, &lt;span style="color:#ae81ff">1161&lt;/span> insertions&lt;span style="color:#f92672">(&lt;/span>+&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这说明博客仓库是非常线性且整洁的 commit 风格——每个 commit 干一件事，diff 都是成篇新增、没有穿插式修改。即使是这种「作者自律良好」的仓库，下文要讲的门禁 Agent 仍然有落点：比如判断 commit message 是否包含主题、draft 文章是否需要补 categories/tags、跨文章引用是否断链等。&lt;/p></description></item><item><title>「AI 帮我看 CI 失败」完整复盘——一次真实的 debug 链路</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/ai-debug-ci-failure/</link><pubDate>Wed, 13 May 2026 15:00:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/ai-debug-ci-failure/</guid><description>&lt;h2 id="起点">起点&lt;/h2>
+&lt;p>&amp;ldquo;让 AI 看 CI 失败&amp;quot;是所有 code agent 场景里最讨喜的一个——因为 CI 日志是&lt;strong>文本&lt;/strong>、失败点是&lt;strong>可验证&lt;/strong>、修复建议是&lt;strong>可回跑&lt;/strong>。三点齐全，agent 基本不会飘。但真正做出来能用的复盘，和写 demo 差得很远：demo 里 agent 给了一条建议大家鼓掌，实战里 agent 得&lt;strong>给出可执行的修复、并且知道自己不该跑什么&lt;/strong>。&lt;/p>
+&lt;p>这篇是我拿本博客仓库的 Hugo 构建当小白鼠，完整演一遍 agent 看 CI 失败的链路。选这个场景是因为它足够小、足够真、成功和失败都好验证。&lt;/p>
+&lt;h2 id="成功-baseline-先摆出来">成功 baseline 先摆出来&lt;/h2>
+&lt;p>debug 的第一件事永远是&lt;strong>先看正常长什么样&lt;/strong>。本机跑一遍 &lt;code>hugo --minify&lt;/code>：&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>$ cd ~/blog &amp;amp;&amp;amp; ~/bin/hugo --minify 2&amp;gt;&amp;amp;1 | tail -20
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Start building sites …
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>hugo v0.147.1-95666fc5a4fd2d87528a1a69d562e0538a97062a+extended darwin/arm64 BuildDate=2025-05-01T13:50:04Z VendorInfo=gohugoio
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> | EN
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-------------------+-----
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Pages | 78
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Paginator pages | 4
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Non-page files | 0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Static files | 1
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Processed images | 0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Aliases | 12
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Cleaned | 0
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Total in 775 ms
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>775ms 出 78 页，无 error 无 warning。这是 baseline——后面任何一次 CI 失败，agent 都是拿这个作参照。没 baseline 的 debug 是猜，有 baseline 的 debug 是看差异。&lt;/p></description></item><item><title>PiCode memory 系统该存什么、不该存什么</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/memory-what-to-store/</link><pubDate>Wed, 13 May 2026 14:00:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/memory-what-to-store/</guid><description>&lt;h2 id="memory-不是日记本">memory 不是日记本&lt;/h2>
+&lt;p>PiCode 有一套 per-project 的 memory 系统，落盘在 &lt;code>~/.picode/projects/&amp;lt;hash&amp;gt;/memory/&lt;/code> 下。每条 memory 一个 &lt;code>.md&lt;/code> 文件，带 YAML frontmatter，外加一个 &lt;code>MEMORY.md&lt;/code> 索引。&lt;/p>
+&lt;p>我刚开始用的时候把它当成「agent 的日记本」：每做完一件事就写点什么。三周后打开索引——42 条记录，70% 都是噪音。这篇文章讲清楚 memory 的正确定位：&lt;strong>跨会话可复用的事实、规范、偏好&lt;/strong>；不是本次任务细节，不是敏感信息，不是会过期的时效状态。&lt;/p>
+&lt;h2 id="先看一眼真实的-memory-目录">先看一眼真实的 memory 目录&lt;/h2>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>$ ls ~/.picode/projects/982b1ec6f0e9/memory/ | head -15
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>MEMORY.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ai-is-turn-based-not-overnight.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>bash-command-substitution-blocked.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>bash-heredoc-bypass-write-file-dict.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>batch-generate-36-articles-plan.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>blog-automation-handoff-doc.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>blog-word-count-flexible.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>check-memory-before-claiming-absence.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cron-09-miss-on-2026-05-12.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cron-trigger-needs-live-picode-process.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>croncreate-durable-prompt-not-flushed.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>crondelete-session-scoped.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>daily-audit-cron-design.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>daily-audit-cron-silent-fail-2026-05-12.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>dry-run-before-cron-writes.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ ls ~/.picode/projects/982b1ec6f0e9/memory/ | wc -l
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 41
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>41 条 memory，不少。问题是——这 41 条里，有些是&lt;strong>该存的&lt;/strong>（例如 &lt;code>bash-command-substitution-blocked&lt;/code> 是 PiCode sandbox 的固定限制），有些是&lt;strong>不该存的&lt;/strong>（例如 &lt;code>cron-09-miss-on-2026-05-12&lt;/code> 记的是一个时间戳明确的单次事故）。&lt;/p></description></item><item><title>Agent 做 GitLab MR Code Review 的工作流</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/gitlab-mr-review-agent/</link><pubDate>Wed, 13 May 2026 13:00:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/gitlab-mr-review-agent/</guid><description>&lt;h2 id="起点">起点&lt;/h2>
+&lt;p>Code review 是最容易被写成&amp;quot;AI 辅助&amp;quot;宣传词、但又最容易翻车的场景。翻车的原因不是 LLM 不够聪明，而是大家对&amp;quot;review&amp;quot;的定义糊成一锅——有的人要的是 lint，有的人要的是语义检查，有的人要的是&amp;quot;架构 level 的把关&amp;quot;。这三件事的工具链、延迟要求、失败后果完全不一样，做成一个 agent 就是灾难。&lt;/p>
+&lt;p>我这一版的思路是&lt;strong>按档分层&lt;/strong>：先把 review 切成三档，每档一个独立的 agent pipeline，webhook 触发时根据 MR 的标签/路径选路。下面拆开讲每一档怎么接，以及为什么我最终没选 &lt;code>glab&lt;/code> 而是直接调 API。&lt;/p>
+&lt;h2 id="先看本机有没有-glab">先看本机有没有 glab&lt;/h2>
+&lt;p>很多教程会说&amp;quot;装 glab 就行&amp;quot;，但实际情况可能更糙：&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>$ which glab 2&amp;gt;&amp;amp;1; glab --version 2&amp;gt;&amp;amp;1 | head -3
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/bin/bash: glab: command not found
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>本机没有。这倒无所谓——GitLab 的 REST/GraphQL API 足够稳定，agent 直接 HTTP 调就行，反而少一层依赖。本文所有示例假设公司 GitLab 地址是 &lt;code>xxx.example.com&lt;/code>，token 通过 &lt;code>picode config set gitlab_token&lt;/code> 注入，agent 在环境变量里读。&lt;/p></description></item><item><title>todo_write 用对的姿势：什么时候拉 list，什么时候别</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/todo-write-right-way/</link><pubDate>Wed, 13 May 2026 13:00:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/todo-write-right-way/</guid><description>&lt;h2 id="起因一个被滥用的工具">起因：一个被滥用的工具&lt;/h2>
+&lt;p>用过 Claude Code / PiCode 的人都见过这个输出：&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-gdscript3" data-lang="gdscript3">&lt;span style="display:flex;">&lt;span>[&lt;span style="color:#f92672">&amp;gt;&lt;/span>] Writing plan&lt;span style="color:#f92672">-&lt;/span>mode&lt;span style="color:#f92672">-&lt;/span>when&lt;span style="color:#f92672">-&lt;/span>useful&lt;span style="color:#f92672">.&lt;/span>md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>[ ] Write picode&lt;span style="color:#f92672">-&lt;/span>use&lt;span style="color:#f92672">-&lt;/span>skill&lt;span style="color:#f92672">-&lt;/span>lazy&lt;span style="color:#f92672">-&lt;/span>load&lt;span style="color:#f92672">.&lt;/span>md (&lt;span style="color:#75715e">#26)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>[ ] Write todo&lt;span style="color:#f92672">-&lt;/span>write&lt;span style="color:#f92672">-&lt;/span>right&lt;span style="color:#f92672">-&lt;/span>way&lt;span style="color:#f92672">.&lt;/span>md (&lt;span style="color:#75715e">#27)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>[ ] Write memory&lt;span style="color:#f92672">-&lt;/span>what&lt;span style="color:#f92672">-&lt;/span>to&lt;span style="color:#f92672">-&lt;/span>store&lt;span style="color:#f92672">.&lt;/span>md (&lt;span style="color:#75715e">#30)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这是 &lt;code>todo_write&lt;/code> 工具吐出来的进度清单。好东西，但我见过两种误用：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>问它改一行代码，它都要先拉一个 3 项的 todo&lt;/strong>——累赘&lt;/li>
+&lt;li>&lt;strong>让它做一个 8 步的 migration，它一个 todo 都不拉&lt;/strong>——中途忘了自己在干嘛&lt;/li>
+&lt;/ol>
+&lt;p>todo_write 的真实作用不是给 agent 自己用的——是&lt;strong>给你（用户）进度可见性&lt;/strong>，顺带给 agent 一个「task 边界约束」。想清楚这个定位，3 条规则就都好推了。&lt;/p>
+&lt;h2 id="规则-13-个非平凡步骤才开-todo">规则 1：≥3 个非平凡步骤才开 todo&lt;/h2>
+&lt;p>什么叫「非平凡步骤」？&lt;strong>每一步都需要一轮以上的工具调用或独立判断&lt;/strong>。不包括：&lt;/p>
+&lt;ul>
+&lt;li>读一个文件&lt;/li>
+&lt;li>回答一个问题&lt;/li>
+&lt;li>改一行代码&lt;/li>
+&lt;/ul>
+&lt;p>举两个反例：&lt;/p></description></item><item><title>文档 Agent：代码一改 README 自动跟随</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/docs-agent-auto-sync-readme/</link><pubDate>Wed, 13 May 2026 13:00:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/docs-agent-auto-sync-readme/</guid><description>&lt;h2 id="起点">起点&lt;/h2>
+&lt;p>README 过时是每一个中等以上规模开源项目的慢性病。代码改了，作者当时忘了同步；下一个 PR 合进来再改，又忘了同步；半年后有新用户来提 issue：「你文档里写 &lt;code>make sim&lt;/code> 但根本没这个 target」——这种 issue 我在自己维护的两个小项目上都吃过，也在读 picorv32、wbuart32 这类老牌项目时作为读者被坑过。&lt;/p>
+&lt;p>传统做法是 pre-commit hook 拦一下，问题是 hook 只能做确定性检查——它看得出 README 是否存在，看不出 README 里那段「Makefile targets」还准不准。这件事本质上需要&lt;strong>读懂 diff 的语义&lt;/strong>，刚好是 LLM agent 该干的。本文讲我怎么搭一个极简「Docs Agent」：监听 git diff、判断变更是否影响公开接口、自动编辑 README 对应段落，同时&lt;strong>不碰作者主观段落&lt;/strong>。&lt;/p>
+&lt;h2 id="先看一个真实仓库">先看一个真实仓库&lt;/h2>
+&lt;p>我们拿 picorv32 这个老 project 做样本。它的 README 非常典型——开头是介绍+特性清单+目录，后面是大段 Verilog 接口和 toolchain 说明。&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ cd ~/.tmp/agent-blog-cache/picorv32 &lt;span style="color:#f92672">&amp;amp;&amp;amp;&lt;/span> git log --oneline README.md | head -5
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>87c89ac clean Makefile
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">(&lt;/span>后续提交多数是功能/修 bug，README.md 动的次数远低于源码&lt;span style="color:#f92672">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>从 &lt;code>git log --oneline README.md | head -5&lt;/code> 只翻出一条 README 相关提交，说明 README 的更新频率远低于代码本身——这就是漂移累积的源头。再看 README 头 30 行：&lt;/p></description></item><item><title>PiCode 的 use_skill 按需加载机制：我为什么不把所有技能都开</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/picode-use-skill-lazy-load/</link><pubDate>Wed, 13 May 2026 11:00:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/picode-use-skill-lazy-load/</guid><description>&lt;h2 id="起因一个我把所有-skill-都装上的想法被现实打脸">起因：一个「我把所有 skill 都装上」的想法，被现实打脸&lt;/h2>
+&lt;p>PiCode 装了很多飞书相关的 skill——我数了一下本机的 &lt;code>~/.picode/installed-skills/&lt;/code>：&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>$ ls ~/.picode/installed-skills/ | wc -l
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 32
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>32 个 skill，每个 SKILL.md 动辄 300-800 行。我一度想「反正都装了，一次全加载进 system prompt，agent 就无所不能了」。写几个 feishu 操作任务之后，这个想法彻底破产。真正救我的是 PiCode 的&lt;strong>按需加载&lt;/strong>机制：默认只把 skill 的 &lt;code>name + description&lt;/code> 两行塞到 system prompt 里，完整 SKILL.md 得显式调 &lt;code>use_skill()&lt;/code> 才会被读进来。&lt;/p>
+&lt;p>这篇文章讲为什么这个设计是对的，以及什么时候你会忍不住想绕开它。&lt;/p>
+&lt;h2 id="预加载-vs-按需加载的-context-开销">预加载 vs 按需加载的 context 开销&lt;/h2>
+&lt;p>先做个粗估。我挑了几个本地有的 skill 实测行数（&lt;code>wc -l SKILL.md&lt;/code>）：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>skill&lt;/th>
+&lt;th style="text-align: right">SKILL.md 行数&lt;/th>
+&lt;th style="text-align: right">粗估 tokens&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>feishu-cli-bitable&lt;/td>
+&lt;td style="text-align: right">≈ 720&lt;/td>
+&lt;td style="text-align: right">≈ 8500&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>feishu-cli-write&lt;/td>
+&lt;td style="text-align: right">≈ 540&lt;/td>
+&lt;td style="text-align: right">≈ 6400&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>feishu-cli-sheet&lt;/td>
+&lt;td style="text-align: right">≈ 610&lt;/td>
+&lt;td style="text-align: right">≈ 7200&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>feishu-cli-board&lt;/td>
+&lt;td style="text-align: right">≈ 480&lt;/td>
+&lt;td style="text-align: right">≈ 5700&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>feishu-router&lt;/td>
+&lt;td style="text-align: right">≈ 220&lt;/td>
+&lt;td style="text-align: right">≈ 2600&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>ada3-pytest&lt;/td>
+&lt;td style="text-align: right">≈ 380&lt;/td>
+&lt;td style="text-align: right">≈ 4500&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>其他 26 个（均值）&lt;/td>
+&lt;td style="text-align: right">≈ 300&lt;/td>
+&lt;td style="text-align: right">≈ 3600 × 26 = 93600&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>全部预加载大约是 &lt;strong>12 万 tokens&lt;/strong>，Claude 3.5 / Opus 的 200k 上下文直接被吃掉 60%。这还没算用户代码、读进来的文件、对话历史。&lt;/p></description></item><item><title>群聊驱动的 debug 工作流实测</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/chat-driven-debug-workflow/</link><pubDate>Wed, 13 May 2026 11:00:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/chat-driven-debug-workflow/</guid><description>&lt;h2 id="起点">起点&lt;/h2>
+&lt;p>线上出问题，第一反应都是&amp;quot;截个图丢群里 @一下相关的人&amp;quot;。但问题一旦被贴进群里，后面其实有一整套&lt;strong>可以交给 agent 去做&lt;/strong>的机械动作：拉 stacktrace、定位到哪一行、翻最近几个 commit、排查嫌疑、然后把结论回贴到原话题里。这些动作过去全靠人做，费的不是脑子，是&amp;quot;谁有空&amp;quot;。&lt;/p>
+&lt;p>这篇文章写的是我在自家这套 PiCode + park-cli 上做的一次工作流尝试：&lt;strong>让群聊变成 debug 的前门，让 agent 做中间的跑腿&lt;/strong>。&lt;/p>
+&lt;p>需要先说清楚：&lt;strong>本文展示的是工作流设计，并不是真的跑了一场线上 debug&lt;/strong>。对话片段是脱敏后的示范。真实的部分是 park-cli 这一套 CLI 能力本身——它已经足够把这个流程撑起来。&lt;/p>
+&lt;h2 id="park-cli-的两个入口">park-cli 的两个入口&lt;/h2>
+&lt;p>这套工作流依赖两组能力：&lt;strong>读群消息&lt;/strong> 和 &lt;strong>发回复&lt;/strong>。在 park-cli 里分别归在 &lt;code>chat&lt;/code> 和 &lt;code>msg&lt;/code> 两个子命令下。&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>$ park-cli chat --help 2&amp;gt;&amp;amp;1 | head -15
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>park-cli chat — ergonomic wrapper around im:chat endpoints,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>mirroring feishu-cli&amp;#39;s chat surface so scripts can migrate by swapping
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>binaries.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Subcommands:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> create Create a new chat (private or public).
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> get Fetch a chat&amp;#39;s metadata.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> update Update a chat&amp;#39;s name / description / owner.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> delete Dissolve a chat.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> link Get a share link for a chat.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Equivalent Layer-1 paths remain available under `park-cli im ...`.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ park-cli msg --help 2&amp;gt;&amp;amp;1 | head -15
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>park-cli msg — send, read, and manage Feishu messages.
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Subcommands:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> send Send a message to a user, chat, or group
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> history List messages in a chat or thread
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> thread-messages List messages in a topic/thread
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> get Get one message by message_id
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> mget Batch get messages by message_id
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> reply Reply to a message by msg_id
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;code>msg history&lt;/code> 和 &lt;code>msg thread-messages&lt;/code> 是这个工作流的心脏：agent 不需要真的做&amp;quot;监听&amp;quot;，它用&lt;strong>拉取&lt;/strong>的方式就能达到同等效果——每隔 N 秒把群里新消息捞一批，识别其中是否包含异常栈/报错关键词/代码片段，识别到就触发 debug pipeline。&lt;code>reply&lt;/code> 是回贴，可以精确回到原异常那条消息下，不污染主聊天流。&lt;/p></description></item><item><title>Mermaid 一键转飞书画板：从文档图到可编辑画板的工作流</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/mermaid-to-feishu-board/</link><pubDate>Wed, 13 May 2026 10:45:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/mermaid-to-feishu-board/</guid><description>&lt;p>写技术文档最顺手的画图方式是 Mermaid——几行文本就能渲染出流程图、时序图、架构图，Hugo、GitHub、Obsidian 都能原生显示。但一旦文档进入团队协作阶段，问题就来了：&lt;strong>Mermaid 图在飞书文档里打不开&lt;/strong>（不是所有类型都支持），更重要的是，&lt;strong>没人能在它上面批注、改节点、画辅助线&lt;/strong>。&lt;/p>
+&lt;p>飞书画板（whiteboard）才是协作工具。问题变成：怎么把已有的 Mermaid 源码最省力地搬进飞书画板？这篇讲两条路径、当前的自动化程度，以及哪一段还必须手工。&lt;/p>
+&lt;h2 id="路径对比">路径对比&lt;/h2>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>flowchart LR
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> M[Mermaid 源码] --&amp;gt;|路径 A| S[SVG/PNG]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> S --&amp;gt; F1[作为图片附件&amp;lt;br/&amp;gt;插入飞书文档]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> M --&amp;gt;|路径 B| P[park-cli board import]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> P --&amp;gt; N[飞书画板节点树]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> N --&amp;gt; F2[在画板里协作/批注/改]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> style F1 stroke-dasharray: 5 5
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> style F2 stroke:#2e7d32,stroke-width:2px
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>路径 A 简单但是&lt;strong>死的&lt;/strong>：图片进文档后，对方只能看，不能改。路径 B 是把 Mermaid 真正转成画板上的节点和连线，在飞书里能拖、能改颜色、能加注释。这篇重点讲 B。&lt;/p></description></item><item><title>让 agent 写出靠谱 commit message 的提示词</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/commit-message-prompt-for-agent/</link><pubDate>Wed, 13 May 2026 10:40:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/commit-message-prompt-for-agent/</guid><description>&lt;p>放任 agent 自己写 commit message，大概率得到三种废话版本：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>空话型&lt;/strong>：&lt;code>update files&lt;/code> / &lt;code>fix bugs&lt;/code> / &lt;code>minor changes&lt;/code>&lt;/li>
+&lt;li>&lt;strong>流水账型&lt;/strong>：把 diff 每行用中文复述一遍，三百字一条&lt;/li>
+&lt;li>&lt;strong>散装型&lt;/strong>：一条 commit 里塞了 5 个不相干的改动&lt;/li>
+&lt;/ol>
+&lt;p>这篇给一段可以直接粘进 system prompt / picode.md / CLAUDE.md 的提示词，让 agent 默认就写 Conventional Commits 风格、简洁且定位准确的 message。&lt;/p>
+&lt;h2 id="先看我自己仓库里正反两种现场">先看我自己仓库里正反两种现场&lt;/h2>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>$ cd ~/blog &amp;amp;&amp;amp; git log --oneline -10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>d421b44 docs(ddr): 新增进阶文章《DDR 训练流程详解：从 Write Leveling 到 DQ Training》
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ae68199 docs: add article #28 - 大代码库检索三件套 grep/glob/explore subagent
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>9d807ec docs(flexnoc): 新增 FlexNOC 仲裁策略深度解析
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>b490e26 draft: code-agent 1 - 用 cron + PiCode 让 Agent 每天自动帮我写技术博客
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>b2f56af draft: FlexNOC 本地目录页 + RDMA 入门
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>325ef60 chore: 从公开仓库移除 FlexNOC NIU 翻译系列（法务合规，本地保留）
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>f44060c draft: FlexNOC NIU 14 - 协议专篇 OCP NIU [中英对照]
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这些都是 agent 写的，可复现、可 grep、也看得懂。做到这一步靠两件事：&lt;strong>一个好 prompt&lt;/strong>，和&lt;strong>两条硬约束&lt;/strong>。&lt;/p></description></item><item><title>background bash 在长跑任务里的正确用法 · 从阻塞到轮询</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/background-bash-for-long-tasks/</link><pubDate>Wed, 13 May 2026 10:35:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/background-bash-for-long-tasks/</guid><description>&lt;p>Agent 的 bash 工具默认是&lt;strong>同步阻塞&lt;/strong>的：发一条命令，等它 stdout 结束，才回到对话。这对 &lt;code>ls&lt;/code> 之类的毫秒级命令没问题，但一旦遇到：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>git clone&lt;/code> 一个几百兆的仓库&lt;/li>
+&lt;li>&lt;code>hugo --minify&lt;/code> 渲染几百篇文章的站&lt;/li>
+&lt;li>&lt;code>pytest&lt;/code> 跑整个测试套&lt;/li>
+&lt;/ul>
+&lt;p>默认模式会出三种问题：&lt;strong>会话被长时间占用&lt;/strong>、&lt;strong>超时被强杀&lt;/strong>、&lt;strong>日志输出顶满上下文窗口&lt;/strong>。PiCode 里的 &lt;code>run_in_background=true&lt;/code> 就是为这三类场景准备的。&lt;/p>
+&lt;h2 id="它到底做了什么">它到底做了什么&lt;/h2>
+&lt;p>同步模式下，bash 工具会等进程退出再把 stdout + stderr 拼成一个字符串返回给 agent。一旦超过默认 10 分钟，tool 返回 timeout，进程被 kill。&lt;/p>
+&lt;p>background 模式不一样。它立即返回一个 task_id，把真实进程交给父 runner 管，stdout/stderr 重定向到本地 log 文件。Agent 可以随时用 &lt;code>bash_output&lt;/code> 轮询最新几百行，用 &lt;code>kill_shell&lt;/code> 终止进程。&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>sequenceDiagram
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> participant A as Agent
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> participant T as Bash Tool
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> participant P as Process
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> participant L as Log File
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> A-&amp;gt;&amp;gt;T: bash(cmd, run_in_background=true)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> T-&amp;gt;&amp;gt;P: fork + exec
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> T-&amp;gt;&amp;gt;L: redirect stdout/stderr
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> T--&amp;gt;&amp;gt;A: {task_id: bg_abc123}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Note over A: agent 可以继续做别的事
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> loop 每隔几分钟
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> A-&amp;gt;&amp;gt;T: bash_output(bg_abc123)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> T-&amp;gt;&amp;gt;L: tail -f 新增内容
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> T--&amp;gt;&amp;gt;A: 最近输出片段
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> end
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> P-&amp;gt;&amp;gt;L: 进程结束
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> A-&amp;gt;&amp;gt;T: bash_output(bg_abc123)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> T--&amp;gt;&amp;gt;A: 最终输出 + exit_code
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>关键点：&lt;strong>agent 在等的过程中不占 token&lt;/strong>。日志一直写到文件，只在你主动轮询时读你要的那几百行，长日志被截断也不会撑爆上下文。&lt;/p></description></item><item><title>DevOps 角色：让一个 Agent 专门跑 CI 看失败</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/devops-agent-ci-runner/</link><pubDate>Wed, 13 May 2026 10:35:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/devops-agent-ci-runner/</guid><description>&lt;h2 id="起点一个失败-ci-能烧掉主-agent-多少-token">起点：一个失败 CI 能烧掉主 agent 多少 token&lt;/h2>
+&lt;p>我主 agent 原本写代码写得好好的，某一次改完推上去，CI 红了。它开始尝试：拉 pipeline 列表、筛 failed jobs、下载 trace、grep 错误关键字、对照 diff 猜测原因……一番操作下来 context 吃掉将近 &lt;strong>40%&lt;/strong>，主线任务（本来在写第三篇 flexnoc 文章）被迫搁置。&lt;/p>
+&lt;p>这是主 agent 兼职跑 CI 的典型症状：&lt;strong>失败分析是一个长尾操作，它把主 agent 的连续思路打断了&lt;/strong>。&lt;/p>
+&lt;p>DevOps 恰恰是最适合独立拆出来的角色——我用了两周，越用越确信这一点。本文讲清楚为什么，并给出一份可以直接抄走的系统提示词模板。&lt;/p>
+&lt;h2 id="为什么-devops-适合独立">为什么 DevOps 适合独立&lt;/h2>
+&lt;p>对照上一篇《单 agent vs 角色拆分》里的判断规则，DevOps 命中三条：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>权限范围小而深&lt;/strong>：它只需要访问 CI 平台（GitLab pipeline / GitHub Actions）、日志、shell 环境的只读子集；不需要写代码库、不需要飞书权限。&lt;/li>
+&lt;li>&lt;strong>触发机制清晰&lt;/strong>：要么是主 agent 显式派发（&amp;ldquo;帮我看下这个 pipeline&amp;rdquo;），要么是事件驱动（pipeline webhook）。不需要和主 agent 高频同步。&lt;/li>
+&lt;li>&lt;strong>失败模式有限&lt;/strong>：长期观察下来，CI 失败无非是以下几类——编译 / lint / 单测 / 集成测 / 资源不足 / 权限过期 / 外部依赖挂了。完全可以把诊断套路模板化。&lt;/li>
+&lt;/ol>
+&lt;p>反观代码编辑、架构设计这类工作，失败模式是发散的，无法靠模板 agent 解决——这也是为什么「让一个 agent 专门写 Go」听起来合理，实际收益远小于让它专门跑 CI。&lt;/p></description></item><item><title>Claude Code 的 plan mode 什么时候真有用</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/plan-mode-when-useful/</link><pubDate>Wed, 13 May 2026 10:30:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/plan-mode-when-useful/</guid><description>&lt;h2 id="起点不是能不能写的问题是要不要先停下来">起点：不是「能不能写」的问题，是「要不要先停下来」&lt;/h2>
+&lt;p>刚用 Claude Code / PiCode 这类 Code Agent 的人，最容易犯的一个错是——看见 plan mode 按钮就开。另一个极端是——从头到尾全开 bypass，让 agent 自己飞。两种用法都浪费了这个档位设计的意义。&lt;/p>
+&lt;p>plan mode 不是「更安全的 default」，它是一个&lt;strong>强制只读的调研档&lt;/strong>。理解这点之前，我们先看 PiCode 实际暴露出来的几档权限。&lt;/p>
+&lt;h2 id="三档权限模式到底是什么">三档权限模式到底是什么&lt;/h2>
+&lt;p>PiCode CLI 直接暴露了 5 个 permission mode，但和写作业相关的只有 3 档：&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>$ picode --help | grep -A1 permission-mode
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> [--permission-mode {default,acceptEdits,plan,bypass,dontAsk}]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> --permission-mode {default,acceptEdits,plan,bypass,dontAsk}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Permission mode: default (prompt), acceptEdits (auto-
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>对应到实际行为：&lt;/p></description></item><item><title>Reviewer 角色实战：让一个 agent 专挑另一个的毛病</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/reviewer-agent-in-practice/</link><pubDate>Wed, 13 May 2026 10:30:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/reviewer-agent-in-practice/</guid><description>&lt;h2 id="起点">起点&lt;/h2>
+&lt;p>我用 cron 自动写博客这套系统跑了两周，稳定是稳定，但翻回头看成品，总觉得有一股「机器顺滑感」——结构对、信息对、但&lt;strong>没有人看完之后会反问一句&lt;/strong>。问题不在 Writer，而在&lt;strong>这个流水线上只有一个角色&lt;/strong>：Writer 同时担了作者和校对，等于自己给自己签稿。&lt;/p>
+&lt;p>修法不是换个更强的模型，而是&lt;strong>拆角色&lt;/strong>：Writer 只管写，Reviewer 只管挑毛病，两个 agent 跑不同 prompt，甚至可以跑不同模型。本文讲我怎么把 Reviewer 这一角加进来，以及如何防止两个 agent 「商业互吹」。&lt;/p>
+&lt;h2 id="为什么-writer-自己-review-不行">为什么 Writer 自己 review 不行&lt;/h2>
+&lt;p>直觉上，同一个 agent 写完再读一遍应该比啥都不做强。实测下来效果很弱，原因是 LLM 的一条已知行为：&lt;strong>自我评估偏向自洽&lt;/strong>——它更倾向于论证自己刚写的东西是对的，而不是找出来错了。这跟人类写完一遍就「看不出 typo」是同一种认知惰性。&lt;/p>
+&lt;p>把 Reviewer 拆成独立会话有三个直接好处：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>context 空白&lt;/strong>：Reviewer 看到的是纯文档，没有 Writer 那一长串「我选了这个结构因为…」的自我辩护&lt;/li>
+&lt;li>&lt;strong>prompt 职责单一&lt;/strong>：Writer prompt 里写「追求清晰」，Reviewer prompt 里写「专找漏洞和夸张」——目标相反，不需要自我说服&lt;/li>
+&lt;li>&lt;strong>可以换模型&lt;/strong>：Writer 用偏写作的模型，Reviewer 用偏推理/安全审查的模型，跨模型视角天然不同&lt;/li>
+&lt;/ol>
+&lt;h2 id="reviewer-的-checklist">Reviewer 的 checklist&lt;/h2>
+&lt;p>Reviewer 不需要比 Writer 更全知，但必须有&lt;strong>明确的检查维度&lt;/strong>，否则会退化成「看起来挺好」。我的 Reviewer prompt 里固定四档 checklist：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>维度&lt;/th>
+&lt;th>具体问什么&lt;/th>
+&lt;th>输出要求&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>逻辑漏洞&lt;/td>
+&lt;td>前后结论是否自洽？数字/因果是否经得起推敲？有没有未说明的跳跃？&lt;/td>
+&lt;td>引原文句 + 指出漏洞&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>代码/命令正确性&lt;/td>
+&lt;td>命令参数、文件路径、API 名是否真实存在？有没有捏造的 flag？&lt;/td>
+&lt;td>列出可疑项 + 建议验证命令&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>安全与合规&lt;/td>
+&lt;td>是否暴露内网 IP / 邮箱 / token / 项目代号？是否违反脱敏规则？&lt;/td>
+&lt;td>直接标红&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>性能/规模假设&lt;/td>
+&lt;td>声称的吞吐、延迟、规模是否有数据支撑？是否把实验室数据当生产数据用？&lt;/td>
+&lt;td>要求补数据或降强度&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>关键是：&lt;strong>Reviewer 不修，只报告&lt;/strong>。让它直接改文稿会诱导它「顺手洗一遍」，既浪费 context 又让 Writer 学不到东西。Reviewer 的输出应是结构化 diff 建议，比如：&lt;/p></description></item><item><title>写好 picode.md / CLAUDE.md 的五条经验 · Agent 工程契约</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/picode-md-claude-md-practices/</link><pubDate>Wed, 13 May 2026 10:30:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/picode-md-claude-md-practices/</guid><description>&lt;p>项目级的 &lt;code>picode.md&lt;/code> / &lt;code>CLAUDE.md&lt;/code> 不是 README，也不是风格指南，它是 agent 和这个仓库之间的&lt;strong>工程契约&lt;/strong>：每开一个新会话，agent 会把它整段吃进上下文，然后据此决定&amp;quot;该跑什么命令、不该碰什么文件、哪些路径我闭着眼睛也别写错&amp;quot;。写不好，每次都要用大段对话把 agent 拉回正轨；写好了，一句&amp;quot;帮我写一篇 FlexNOC 文章&amp;quot;就能直接落盘。&lt;/p>
+&lt;p>这篇把我在自己博客仓库里踩过的坑收敛成五条经验，配好/坏两版对照。&lt;/p>
+&lt;h2 id="先看这个仓库里真实存在的-md">先看这个仓库里真实存在的 .md&lt;/h2>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>$ find ~/blog -maxdepth 2 -iname &amp;#34;claude.md&amp;#34; -o -iname &amp;#34;picode.md&amp;#34; 2&amp;gt;/dev/null
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>/Users/bytedance/blog/picode.md
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>一个项目只放一份，位置就在仓库根。内容节选：&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-markdown" data-lang="markdown">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 基本信息
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">-&lt;/span> 博客地址：https://wm920.github.io
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">-&lt;/span> 本地路径：~/blog
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">-&lt;/span> GitHub 仓库：wm920/wm920.github.io（main 分支）
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">-&lt;/span> Hugo 二进制：~/bin/hugo
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 内容目录结构
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">-&lt;/span> content/学习笔记/flexnoc/ → FlexNOC 互联总线架构（优先方向）
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">-&lt;/span> content/学习笔记/ddr/ → DDR 内存协议
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">## 发布流程
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#66d9ef">1.&lt;/span> 检查目录下已有文章，确认选题不重复
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">2.&lt;/span> 撰写文章，设置 draft: true
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">3.&lt;/span> 本地 &lt;span style="color:#e6db74">`~/bin/hugo --minify`&lt;/span> 构建验证
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">4.&lt;/span> git add → git commit → git push
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>为什么它能稳定驱动一个每天 4 班的定时 agent？因为它满足下面五条。&lt;/p></description></item><item><title>单 Agent vs 角色拆分：什么时候该拆、什么时候别拆</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/single-agent-vs-role-split/</link><pubDate>Wed, 13 May 2026 10:30:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/single-agent-vs-role-split/</guid><description>&lt;h2 id="起点默认单-agent-是对的">起点：默认单 agent 是对的&lt;/h2>
+&lt;p>一碰到复杂任务，很多人第一反应是「我得拆几个角色出来」——一个 planner、一个 coder、一个 reviewer，再加一个 DevOps。看起来很像「人类团队」，很工整。&lt;/p>
+&lt;p>但我自己的经验、以及把 36 篇博文交给不同编排跑过一轮之后的结论是相反的：&lt;/p>
+&lt;p>&lt;strong>默认请用单 agent。只有在满足明确触发条件时才拆。&lt;/strong>&lt;/p>
+&lt;p>原因很朴素——单 agent 有两个天然优势：&lt;strong>context 连续&lt;/strong>和&lt;strong>决策链短&lt;/strong>。它看过的文件、它踩过的坑、它上一步决定用哪个命令，全都在一个上下文里。一旦你切出子 agent，这份记忆就断了，你得靠 prompt 里的一段摘要把它接回去——这段摘要几乎必然有损。&lt;/p>
+&lt;h2 id="拆分的真实收益场景">拆分的真实收益场景&lt;/h2>
+&lt;p>那什么时候拆？我把自己遇到的场景收敛成四类：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>场景&lt;/th>
+&lt;th>本质原因&lt;/th>
+&lt;th>典型例子&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>长跑任务&lt;/td>
+&lt;td>单 context 装不下&lt;/td>
+&lt;td>大仓库批量改 200 个文件、补 500 条测试&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>领域专精&lt;/td>
+&lt;td>每个领域的 skill / 规则不一样&lt;/td>
+&lt;td>DevOps / 安全扫描 / 文档翻译&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>并行加速&lt;/td>
+&lt;td>任务之间无数据依赖&lt;/td>
+&lt;td>批量生成多篇博文、多仓库扫描&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>风险隔离&lt;/td>
+&lt;td>某些操作需要更保守的权限档位&lt;/td>
+&lt;td>只读诊断、生产环境只看不改&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>并行加速是最容易判断的——昨晚我决定把 36 篇博文交给 3 个 sub-agent 并行写，就是典型的第三类。每篇博文之间没有依赖、选题池已经分好组、输出目录是同一个但文件名互不重叠。这种场景拆分几乎稳赚。&lt;/p>
+&lt;p>领域专精则比较隐蔽。&lt;code>feishu-router&lt;/code> 把飞书域切出 30+ 个子 skill 就是个好例子——每个子 skill 的 prompt、禁忌、ID 规则都不同，硬塞进一个 agent 会撑爆 context；拆开之后每次只加载需要的那一份。&lt;/p></description></item><item><title>波形 / log 分析 agent：仿真失败自动定位</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/waveform-log-analysis-agent/</link><pubDate>Wed, 13 May 2026 10:30:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/waveform-log-analysis-agent/</guid><description>&lt;h2 id="起点仿真炸了之后的那半天">起点：仿真炸了之后的那半天&lt;/h2>
+&lt;p>RTL 仿真跑完显示 &lt;code>FAILED&lt;/code>，日志几 MB，打开 gtkwave 前先得知道看哪段时间。传统流程：人肉翻 log → 定位到第一个 &lt;code>UVM_ERROR&lt;/code> → 回去对波形 → 去 git 里翻最近的 commit → 猜哪行代码改坏了。一个 5 分钟的炸场景，定位经常要 2-3 小时。&lt;/p>
+&lt;p>这不是能力问题，是&lt;strong>纯粹的机械性信息检索&lt;/strong>。而这个形状恰好是 agent 擅长的——有明确输入（log + 波形 + git history）、有明确输出（可疑 commit + 可疑信号 + 复现路径）、中间步骤全是&amp;quot;搜索 / 比对 / 截取&amp;quot;。&lt;/p>
+&lt;p>本文讲怎么把一个 log 分析 agent 串起来，以 CVA6（OpenHW 的开源 RV64 core）为例。强调一件事：&lt;strong>agent 不替你下结论，它只把线索从 10k 行压到 10 行&lt;/strong>。&lt;/p>
+&lt;h2 id="原理线索不是结论">原理：线索不是结论&lt;/h2>
+&lt;p>先约定一个心智模型。仿真失败的根因分布大致是：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>类型&lt;/th>
+&lt;th>占比&lt;/th>
+&lt;th>信号&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>RTL 改动引入新 bug&lt;/td>
+&lt;td>~50%&lt;/td>
+&lt;td>昨天过、今天挂；bisect 可定位&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>测试本身写错&lt;/td>
+&lt;td>~20%&lt;/td>
+&lt;td>只挂某条 case；sequence 逻辑问题&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>协议 / timing assertion&lt;/td>
+&lt;td>~15%&lt;/td>
+&lt;td>&lt;code>assert property&lt;/code> 触发；波形易复现&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>配置 / 环境漂移&lt;/td>
+&lt;td>~10%&lt;/td>
+&lt;td>同一个 hash 本地过 CI 挂&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>真·间歇性（race / x-prop）&lt;/td>
+&lt;td>~5%&lt;/td>
+&lt;td>重跑 seed 可能过；最恶心&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>前三类占 85%，完全机械，是 agent 第一波要吃掉的。第四类走 diff 环境，第五类必须人看——agent 要明确说&amp;quot;我不确定&amp;quot;，不能为了显得聪明给一个似是而非的 commit。&lt;/p></description></item><item><title>大代码库检索三件套：grep / glob / explore subagent</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/search-large-codebase-with-agent/</link><pubDate>Tue, 12 May 2026 15:00:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/search-large-codebase-with-agent/</guid><description>&lt;h2 id="问题">问题&lt;/h2>
+&lt;p>你让 Code Agent 帮你在一个 10 万行的仓库里找某个函数的调用链、定位某段错误日志的来源、或者弄清一个模块的文件结构。Agent 拿到任务后疯狂 &lt;code>read_file&lt;/code>，一个文件一个文件地打开，context 窗口很快撑满，答案还没找到。&lt;/p>
+&lt;p>这不是 agent 笨，而是&lt;strong>没用对检索工具&lt;/strong>。Code Agent（PiCode / Claude Code 等）内置了三种不同粒度的代码搜索手段，各有适用场景。本文用实际操作把它们拆清楚。&lt;/p>
+&lt;h2 id="三件套速查">三件套速查&lt;/h2>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>工具&lt;/th>
+&lt;th>用途&lt;/th>
+&lt;th>类比&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>&lt;code>grep_file&lt;/code>&lt;/td>
+&lt;td>在文件内容中做正则匹配&lt;/td>
+&lt;td>&lt;code>rg&lt;/code>（ripgrep）&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>glob_file&lt;/code>&lt;/td>
+&lt;td>按文件名模式查找路径&lt;/td>
+&lt;td>&lt;code>find -name&lt;/code> / &lt;code>ls **/*.v&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>task(explore)&lt;/code>&lt;/td>
+&lt;td>启动一个只读子 agent 做深度搜索&lt;/td>
+&lt;td>派一个实习生去翻代码，回来汇报&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>三者不是互斥的——实际任务里往往是组合使用：先 glob 找到目录结构，再 grep 缩小范围，最后用 explore subagent 做跨文件的语义串联。&lt;/p>
+&lt;h2 id="第一招grep_file">第一招：grep_file&lt;/h2>
+&lt;h3 id="基本用法">基本用法&lt;/h3>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>grep_file(pattern=&amp;#34;AXI_RESP_SLVERR&amp;#34;, path=&amp;#34;rtl/&amp;#34;, type=&amp;#34;v&amp;#34;)
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>等价于在终端跑 &lt;code>rg &amp;quot;AXI_RESP_SLVERR&amp;quot; rtl/ -t verilog&lt;/code>，但不需要你手动解析输出——agent 拿到结果后直接推理。&lt;/p>
+&lt;h3 id="关键参数">关键参数&lt;/h3>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>参数&lt;/th>
+&lt;th>作用&lt;/th>
+&lt;th>示例&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>&lt;code>output_mode&lt;/code>&lt;/td>
+&lt;td>&lt;code>files_with_matches&lt;/code>（默认，只返路径）/ &lt;code>content&lt;/code>（返回匹配行+上下文）/ &lt;code>count&lt;/code>（计数）&lt;/td>
+&lt;td>先 files_with_matches 定位，再 content 看细节&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>context_lines&lt;/code>&lt;/td>
+&lt;td>匹配行前后各显示 N 行&lt;/td>
+&lt;td>看函数签名一般给 3-5&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>case_insensitive&lt;/code>&lt;/td>
+&lt;td>大小写不敏感&lt;/td>
+&lt;td>搜日志信息时常用&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>type&lt;/code>&lt;/td>
+&lt;td>限定文件类型&lt;/td>
+&lt;td>&lt;code>&amp;quot;py&amp;quot;&lt;/code> / &lt;code>&amp;quot;v&amp;quot;&lt;/code> / &lt;code>&amp;quot;rs&amp;quot;&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>glob&lt;/code>&lt;/td>
+&lt;td>限定文件名模式&lt;/td>
+&lt;td>&lt;code>&amp;quot;*.sv&amp;quot;&lt;/code> / &lt;code>&amp;quot;*_test.go&amp;quot;&lt;/code>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>head_limit&lt;/code> + &lt;code>offset&lt;/code>&lt;/td>
+&lt;td>分页&lt;/td>
+&lt;td>结果太多时只看前 10 条&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>&lt;code>multiline&lt;/code>&lt;/td>
+&lt;td>跨行匹配&lt;/td>
+&lt;td>匹配跨两行的函数定义&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h3 id="实战追踪一个错误码">实战：追踪一个错误码&lt;/h3>
+&lt;p>场景：CI 日志里出现 &lt;code>error code 0xDEAD&lt;/code>，你想知道是哪个模块产生的。&lt;/p></description></item><item><title>用 cron + PiCode 让 Agent 每天自动帮我写技术博客</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/auto-blog-with-cron-and-picode/</link><pubDate>Tue, 12 May 2026 01:50:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/auto-blog-with-cron-and-picode/</guid><description>&lt;h2 id="起点">起点&lt;/h2>
+&lt;p>我想要的不是&amp;quot;AI 帮我润色&amp;quot;，而是 &lt;strong>AI 像员工一样每天主动写一篇技术博文&lt;/strong>：选题、写稿、用 Hugo 验证、&lt;code>git push&lt;/code>、最后把摘要发到飞书。整件事的难点不在 LLM 的写作能力，而在 &lt;strong>调度 + 工具调用 + 反馈闭环&lt;/strong>这三件家务事。&lt;/p>
+&lt;p>本文用我自己刚搭起来的这套系统当案例，把每一层都拆开讲。&lt;/p>
+&lt;h2 id="调度的三层真相">调度的三层真相&lt;/h2>
+&lt;p>很多人以为&amp;quot;定时任务&amp;quot;是一个抽象概念，其实在 macOS 上它有三层完全独立的实现，每层管的事不一样：&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>$ python3 -c &lt;span style="color:#e6db74">&amp;#34;import json;d=json.load(open(&amp;#39;/Users/xxx/.picode/scheduled_tasks.json&amp;#39;));print(&amp;#39;任务数:&amp;#39;,len(d[&amp;#39;tasks&amp;#39;]));[print(f\&amp;#34; {t[&amp;#39;cron&amp;#39;]:&amp;lt;14} {t[&amp;#39;id&amp;#39;]}\&amp;#34;) for t in d[&amp;#39;tasks&amp;#39;]]&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>任务数: &lt;span style="color:#ae81ff">4&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">9&lt;/span> * * * 39232df7f958
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">13&lt;/span> * * * f9c3fe24f042
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">20&lt;/span> * * * bed86fcc46af
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">15&lt;/span> * * 1-5 41454d9ad104
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ crontab -l
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">0&lt;/span> &lt;span style="color:#ae81ff">19&lt;/span> * * * /Users/xxx/.picode/lhy-agent-course/push.sh
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ launchctl list | grep picode-scheduler
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">2507&lt;/span> &lt;span style="color:#ae81ff">0&lt;/span> com.user.picode-scheduler
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>第一层 &lt;code>~/.picode/scheduled_tasks.json&lt;/code> 是 PiCode 自带的 cron——每条 task 都附了一段完整的自然语言 prompt，等于把&amp;quot;几点叫醒一个新的 agent 会话 + 给它具体任务&amp;quot;打成一个原子单位。第二层是 macOS 系统 crontab，跑纯 shell。第三层 LaunchAgent 不是用来定时干活的，而是&lt;strong>守护那个会自动 fire 第一层任务的 picode 进程&lt;/strong>。&lt;/p></description></item><item><title>如何高效使用 Code Agent：以 PiCode 为例的实用指南</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/ai-tools/code-agent-tips/</link><pubDate>Sun, 10 May 2026 00:00:00 +0000</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/ai-tools/code-agent-tips/</guid><description>从沟通技巧到实战场景，系统介绍如何与 Code Agent 协作，让 AI 真正成为你的得力助手。</description></item></channel></rss>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Anti-Pattern on Min的博客</title><link>https://wm920.github.io/tags/anti-pattern/</link><description>Recent content in Anti-Pattern on Min的博客</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Wed, 13 May 2026 20:00:00 +0800</lastBuildDate><atom:link href="https://wm920.github.io/tags/anti-pattern/index.xml" rel="self" type="application/rss+xml"/><item><title>多角色协作的 5 个反模式：哪些活真的不该拆</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/multi-agent-anti-patterns/</link><pubDate>Wed, 13 May 2026 20:00:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/multi-agent-anti-patterns/</guid><description>&lt;h2 id="起点">起点&lt;/h2>
+&lt;p>「多 agent」最近被讲得几乎等同于「更强的 agent」，一个活儿只要拆出 3–5 个角色就显得更高级。我这套博客流水线一开始也踩过同样的坑——把选题、调研、写作、review、发布拆成五个 subagent，流程图画得漂亮，实际跑起来一天里有一半时间花在「agent 之间翻译来翻译去」上。后来砍回到 2–3 个稳定角色，反而效率翻倍。&lt;/p>
+&lt;p>这篇和上一篇《single agent vs role split》是姊妹篇：那篇讲「什么时候值得拆」，这篇讲「拆了以后踩过的坑」。5 个反模式我都&lt;strong>自己撞过&lt;/strong>，不是看别人吐槽来的。&lt;/p>
+&lt;p>先看一个真实的 task list，这是当前 sub-agent 调度器的快照：&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-text" data-lang="text">&lt;span style="display:flex;">&lt;span>Background sub-agents:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> task_id status elapsed description
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ----------------------------------------------------------------------
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> sa-572e8b76 completed 227 Batch 1: C类4篇
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> sa-0b9a118a completed 200 Batch 2: C类4篇
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> sa-8bd98f25 completed 122 Batch 3: A类2篇
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> sa-c113d11c running 28 A批次1: #2/3/4/5
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> sa-660e02b0 running 16 A批次2: #6/8/9/10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> sa-0720197a running 0 B-picorv32+wbuart32 3篇
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这张表本身就是一个设计决策的结果：6 个 subagent 并行、每个负责 3–4 篇独立文章、文件边界不重叠。如果你看到的是「sa-001 写大纲、sa-002 翻译、sa-003 校对、sa-004 格式化」这种流水线式拆法，下文第一个反模式就会直接命中。&lt;/p></description></item></channel></rss>

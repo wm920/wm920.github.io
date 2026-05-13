@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Chip-Design on Min的博客</title><link>https://wm920.github.io/tags/chip-design/</link><description>Recent content in Chip-Design on Min的博客</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Wed, 13 May 2026 22:00:00 +0800</lastBuildDate><atom:link href="https://wm920.github.io/tags/chip-design/index.xml" rel="self" type="application/rss+xml"/><item><title>为什么传统 EDA 工作流难以 agent 化</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/why-eda-hard-to-agentize/</link><pubDate>Wed, 13 May 2026 22:00:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/why-eda-hard-to-agentize/</guid><description>软件圈 agent 风风火火，EDA 圈却静得出奇。不是 EDA 工程师不想自动化，是五堵现实的墙——闭源工具、license 瓶颈、仿真耗时、隐式知识、NFS 数据——让 agent 进不来。本文逐条拆解并给处方。</description></item><item><title>Verilator + Agent：开源 RTL 工具链怎么串起来</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/verilator-agent-toolchain/</link><pubDate>Wed, 13 May 2026 20:00:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/verilator-agent-toolchain/</guid><description>&lt;h2 id="起点开源-rtl-工具链的那条断线">起点：开源 RTL 工具链的那条&amp;quot;断线&amp;quot;&lt;/h2>
+&lt;p>商业仿真器（VCS / Xcelium / Questa）用得久了，你会习惯它们把一切打包好：编译、仿真、波形、覆盖率，一个 Makefile 全搞定。换到开源栈——Verilator 编译 SV → 生成 C++ → 再自己写 C++ 驱动它——你会发现少了一段&amp;quot;胶水&amp;quot;：&lt;/p>
+&lt;ul>
+&lt;li>写 C++ testbench 的人要同时懂 RTL 接口和 C++ stub&lt;/li>
+&lt;li>仿真跑完输出是一坨 printf，没有 UVM report server 那种结构化分级&lt;/li>
+&lt;li>失败不知道去哪看，&lt;code>$fatal&lt;/code> 直接 abort，没有现成的错误翻译&lt;/li>
+&lt;/ul>
+&lt;p>这段胶水过去靠资深工程师积累的脚本和模板。Agent 的介入点正好在这里——它不负责替代 Verilator，它负责&lt;strong>把 Verilator 的输入输出和人对接起来&lt;/strong>。&lt;/p>
+&lt;p>本文讲怎么把一条 agent-assisted Verilator 工具链串起来，以 lowRISC Ibex 和 OpenTitan 为真实材料。&lt;/p>
+&lt;h2 id="先确认环境">先确认环境&lt;/h2>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>$ which verilator 2&amp;gt;&amp;amp;1 || echo &amp;#34;not installed&amp;#34;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>not installed
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>我本机没装 Verilator——这本身是个真实场景。Agent 应该先做的事是判断环境缺啥：&lt;/p></description></item><item><title>新人 onboarding agent：带新人逛一遍 OpenTitan</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/onboarding-agent-opentitan-tour/</link><pubDate>Wed, 13 May 2026 20:00:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/onboarding-agent-opentitan-tour/</guid><description>&lt;p>OpenTitan 是 lowRISC 主导的开源硅 root-of-trust 项目，目前一个 clone 就 &lt;strong>300 MB+&lt;/strong>，目录横跨 RTL、DV、固件、bazel 构建、文档站。&lt;strong>新人入职第一周几乎一定会 get lost&lt;/strong>——不是看不懂代码，是根本找不到代码在哪。&lt;/p>
+&lt;p>我给组里这条坑搭了一个 onboarding agent，它只做三件事：给仓库&lt;strong>地图&lt;/strong>、做&lt;strong>问答式导览&lt;/strong>、生成一份个性化的 &lt;strong>first-task&lt;/strong>。这篇记一下怎么搭、怎么用、以及一段真实的对话片段。&lt;/p>
+&lt;h2 id="先感受一下仓库尺寸">先感受一下仓库尺寸&lt;/h2>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>$ cd ~/.tmp/agent-blog-cache/opentitan
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ du -sh hw sw util doc
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>207M hw
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 39M sw
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>4.9M util
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 11M doc
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ ls -la | head -20
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>total 5936
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-r--r-- .bazelrc 6.4K
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-r--r-- .svlint.toml 1.4K
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-r--r-- BLOCKFILE 4.4K
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-r--r-- CONTRIBUTING.md 2.5K
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-r--r-- MODULE.bazel 14.5K
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-r--r-- MODULE.bazel.lock 2.7M &amp;lt;-- 注意
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x ci/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x doc/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x hw/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x sw/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x third_party/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x util/
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>一个 lockfile 就 2.7 MB，&lt;code>hw/&lt;/code> 一枝独秀 207 MB。再看 hw 下一层：&lt;/p></description></item><item><title>UVM 测试用例自动补全：覆盖率驱动 agent 补 case</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/uvm-case-auto-gen-by-coverage/</link><pubDate>Wed, 13 May 2026 13:00:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/uvm-case-auto-gen-by-coverage/</guid><description>&lt;h2 id="起点覆盖率报告末尾那几行红字">起点：覆盖率报告末尾那几行红字&lt;/h2>
+&lt;p>UVM regression 跑一个通宵，早上看报告，line coverage 94%、branch 91%、功能覆盖 &lt;code>covergroup&lt;/code> 里一堆 bin &lt;strong>0 hits&lt;/strong>。这些 bin 通常是配置组合（比如 PMP region 数 × lock 位 × 地址对齐四选一），落在随机分布尾部。继续加 iteration 数是没用的——加 10 倍 seed 可能只多点亮一两个 bin，指数级低效。&lt;/p>
+&lt;p>传统解法：DV 工程师手写 directed test，针对未覆盖的 bin 约束激励。这活机械但不简单：&lt;strong>读 spec → 读 covergroup 定义 → 反推激励空间 → 写 sequence&lt;/strong>。一个 bin 从分析到落下 10-30 分钟，多的时候几百个 bin，一周就没了。&lt;/p>
+&lt;p>Agent 能不能做？能，但&lt;strong>必须是语义定向，不是盲目随机增补&lt;/strong>。本文讲这个 pipeline 怎么搭。&lt;/p>
+&lt;h2 id="原理为什么不能用多跑几轮解决">原理：为什么不能用&amp;quot;多跑几轮&amp;quot;解决&lt;/h2>
+&lt;p>功能覆盖率的每个 bin 背后是一个&lt;strong>设计意图&lt;/strong>。举个例子，OpenTitan 的 &lt;code>flash_ctrl_env_cov.sv&lt;/code> 里会定义&amp;quot;读取 × 某擦除状态 × 某 MP region&amp;quot;的交叉 bin。随机约束打出来的激励在这个三维空间里&lt;strong>不是均匀分布&lt;/strong>——擦除状态有生命周期，MP region 配置有重置默认，read 操作更偏向特定地址段。结果就是三维交叉里有一块&amp;quot;随机永远到不了&amp;quot;的区域。&lt;/p></description></item><item><title>Ibex 代码评审 agent：按 lowRISC coding style 自动 review</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/ibex-review-agent-lowrisc-style/</link><pubDate>Wed, 13 May 2026 10:30:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/ibex-review-agent-lowrisc-style/</guid><description>&lt;p>Ibex 是 lowRISC 维护的 32 位 RISC-V 小核，在 OpenTitan 里是 root-of-trust 的大脑。这种以安全为立身之本的项目，代码评审门槛很高：命名、端口顺序、reset 风格、assertion 覆盖度，全部写进 style guide，PR 一个不过就回炉。问题是，人工 review 一份几百行的 SV diff，注意力很快就散了——「端口 &lt;code>_i/_o&lt;/code> 后缀写了没」「&lt;code>always_ff&lt;/code> 是不是 async reset」这种机械检查，正是 agent 的舒适区。&lt;/p>
+&lt;p>这篇记一下我给 Ibex 搭的 Reviewer agent：&lt;strong>吃 style guide、扫 PR diff、按规则打分&lt;/strong>，人类只需要看 agent 标红的那几行。&lt;/p>
+&lt;h2 id="为什么是-ibex--lowrisc">为什么是 Ibex / lowRISC&lt;/h2>
+&lt;p>挑 Ibex 做样本有三个原因：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>规模刚好&lt;/strong>。整个仓库 56 MB，RTL 行数可数，够 agent 一口吃掉，又不至于像 OpenTitan 那样得做切片。&lt;/li>
+&lt;li>&lt;strong>风格规范显式落地&lt;/strong>。lowRISC 把 style 规则直接写进了 verible-lint 和 svlint 的 config，agent 不用猜。&lt;/li>
+&lt;li>&lt;strong>assertion 密度高&lt;/strong>。安全芯片里 &lt;code>ASSERT&lt;/code> 不是点缀，是第一道防线，review 时必须检查。&lt;/li>
+&lt;/ol>
+&lt;p>先看一眼真实规则集长什么样：&lt;/p></description></item><item><title>波形 / log 分析 agent：仿真失败自动定位</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/waveform-log-analysis-agent/</link><pubDate>Wed, 13 May 2026 10:30:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/waveform-log-analysis-agent/</guid><description>&lt;h2 id="起点仿真炸了之后的那半天">起点：仿真炸了之后的那半天&lt;/h2>
+&lt;p>RTL 仿真跑完显示 &lt;code>FAILED&lt;/code>，日志几 MB，打开 gtkwave 前先得知道看哪段时间。传统流程：人肉翻 log → 定位到第一个 &lt;code>UVM_ERROR&lt;/code> → 回去对波形 → 去 git 里翻最近的 commit → 猜哪行代码改坏了。一个 5 分钟的炸场景，定位经常要 2-3 小时。&lt;/p>
+&lt;p>这不是能力问题，是&lt;strong>纯粹的机械性信息检索&lt;/strong>。而这个形状恰好是 agent 擅长的——有明确输入（log + 波形 + git history）、有明确输出（可疑 commit + 可疑信号 + 复现路径）、中间步骤全是&amp;quot;搜索 / 比对 / 截取&amp;quot;。&lt;/p>
+&lt;p>本文讲怎么把一个 log 分析 agent 串起来，以 CVA6（OpenHW 的开源 RV64 core）为例。强调一件事：&lt;strong>agent 不替你下结论，它只把线索从 10k 行压到 10 行&lt;/strong>。&lt;/p>
+&lt;h2 id="原理线索不是结论">原理：线索不是结论&lt;/h2>
+&lt;p>先约定一个心智模型。仿真失败的根因分布大致是：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>类型&lt;/th>
+&lt;th>占比&lt;/th>
+&lt;th>信号&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>RTL 改动引入新 bug&lt;/td>
+&lt;td>~50%&lt;/td>
+&lt;td>昨天过、今天挂；bisect 可定位&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>测试本身写错&lt;/td>
+&lt;td>~20%&lt;/td>
+&lt;td>只挂某条 case；sequence 逻辑问题&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>协议 / timing assertion&lt;/td>
+&lt;td>~15%&lt;/td>
+&lt;td>&lt;code>assert property&lt;/code> 触发；波形易复现&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>配置 / 环境漂移&lt;/td>
+&lt;td>~10%&lt;/td>
+&lt;td>同一个 hash 本地过 CI 挂&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>真·间歇性（race / x-prop）&lt;/td>
+&lt;td>~5%&lt;/td>
+&lt;td>重跑 seed 可能过；最恶心&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>前三类占 85%，完全机械，是 agent 第一波要吃掉的。第四类走 diff 环境，第五类必须人看——agent 要明确说&amp;quot;我不确定&amp;quot;，不能为了显得聪明给一个似是而非的 commit。&lt;/p></description></item></channel></rss>

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Memory on Min的博客</title><link>https://wm920.github.io/tags/memory/</link><description>Recent content in Memory on Min的博客</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Wed, 13 May 2026 14:00:00 +0800</lastBuildDate><atom:link href="https://wm920.github.io/tags/memory/index.xml" rel="self" type="application/rss+xml"/><item><title>PiCode memory 系统该存什么、不该存什么</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/memory-what-to-store/</link><pubDate>Wed, 13 May 2026 14:00:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/memory-what-to-store/</guid><description>&lt;h2 id="memory-不是日记本">memory 不是日记本&lt;/h2>
+&lt;p>PiCode 有一套 per-project 的 memory 系统，落盘在 &lt;code>~/.picode/projects/&amp;lt;hash&amp;gt;/memory/&lt;/code> 下。每条 memory 一个 &lt;code>.md&lt;/code> 文件，带 YAML frontmatter，外加一个 &lt;code>MEMORY.md&lt;/code> 索引。&lt;/p>
+&lt;p>我刚开始用的时候把它当成「agent 的日记本」：每做完一件事就写点什么。三周后打开索引——42 条记录，70% 都是噪音。这篇文章讲清楚 memory 的正确定位：&lt;strong>跨会话可复用的事实、规范、偏好&lt;/strong>；不是本次任务细节，不是敏感信息，不是会过期的时效状态。&lt;/p>
+&lt;h2 id="先看一眼真实的-memory-目录">先看一眼真实的 memory 目录&lt;/h2>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>$ ls ~/.picode/projects/982b1ec6f0e9/memory/ | head -15
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>MEMORY.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ai-is-turn-based-not-overnight.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>bash-command-substitution-blocked.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>bash-heredoc-bypass-write-file-dict.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>batch-generate-36-articles-plan.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>blog-automation-handoff-doc.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>blog-word-count-flexible.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>check-memory-before-claiming-absence.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cron-09-miss-on-2026-05-12.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>cron-trigger-needs-live-picode-process.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>croncreate-durable-prompt-not-flushed.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>crondelete-session-scoped.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>daily-audit-cron-design.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>daily-audit-cron-silent-fail-2026-05-12.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>dry-run-before-cron-writes.md
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>...
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ ls ~/.picode/projects/982b1ec6f0e9/memory/ | wc -l
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 41
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>41 条 memory，不少。问题是——这 41 条里，有些是&lt;strong>该存的&lt;/strong>（例如 &lt;code>bash-command-substitution-blocked&lt;/code> 是 PiCode sandbox 的固定限制），有些是&lt;strong>不该存的&lt;/strong>（例如 &lt;code>cron-09-miss-on-2026-05-12&lt;/code> 记的是一个时间戳明确的单次事故）。&lt;/p></description></item></channel></rss>

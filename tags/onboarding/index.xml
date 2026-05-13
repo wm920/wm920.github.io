@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Onboarding on Min的博客</title><link>https://wm920.github.io/tags/onboarding/</link><description>Recent content in Onboarding on Min的博客</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Wed, 13 May 2026 20:00:00 +0800</lastBuildDate><atom:link href="https://wm920.github.io/tags/onboarding/index.xml" rel="self" type="application/rss+xml"/><item><title>新人 onboarding agent：带新人逛一遍 OpenTitan</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/onboarding-agent-opentitan-tour/</link><pubDate>Wed, 13 May 2026 20:00:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/onboarding-agent-opentitan-tour/</guid><description>&lt;p>OpenTitan 是 lowRISC 主导的开源硅 root-of-trust 项目，目前一个 clone 就 &lt;strong>300 MB+&lt;/strong>，目录横跨 RTL、DV、固件、bazel 构建、文档站。&lt;strong>新人入职第一周几乎一定会 get lost&lt;/strong>——不是看不懂代码，是根本找不到代码在哪。&lt;/p>
+&lt;p>我给组里这条坑搭了一个 onboarding agent，它只做三件事：给仓库&lt;strong>地图&lt;/strong>、做&lt;strong>问答式导览&lt;/strong>、生成一份个性化的 &lt;strong>first-task&lt;/strong>。这篇记一下怎么搭、怎么用、以及一段真实的对话片段。&lt;/p>
+&lt;h2 id="先感受一下仓库尺寸">先感受一下仓库尺寸&lt;/h2>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>$ cd ~/.tmp/agent-blog-cache/opentitan
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ du -sh hw sw util doc
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>207M hw
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 39M sw
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>4.9M util
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 11M doc
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>$ ls -la | head -20
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>total 5936
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-r--r-- .bazelrc 6.4K
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-r--r-- .svlint.toml 1.4K
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-r--r-- BLOCKFILE 4.4K
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-r--r-- CONTRIBUTING.md 2.5K
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-r--r-- MODULE.bazel 14.5K
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>-rw-r--r-- MODULE.bazel.lock 2.7M &amp;lt;-- 注意
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x ci/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x doc/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x hw/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x sw/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x third_party/
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>drwxr-xr-x util/
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>一个 lockfile 就 2.7 MB，&lt;code>hw/&lt;/code> 一枝独秀 207 MB。再看 hw 下一层：&lt;/p></description></item></channel></rss>

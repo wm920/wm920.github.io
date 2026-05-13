@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>System-Prompt on Min的博客</title><link>https://wm920.github.io/tags/system-prompt/</link><description>Recent content in System-Prompt on Min的博客</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Wed, 13 May 2026 22:55:00 +0800</lastBuildDate><atom:link href="https://wm920.github.io/tags/system-prompt/index.xml" rel="self" type="application/rss+xml"/><item><title>给角色 agent 写 system prompt 的 5 条戒律</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/role-system-prompt-5-rules/</link><pubDate>Wed, 13 May 2026 22:55:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/role-system-prompt-5-rules/</guid><description>&lt;p>多 agent 协作里，角色 agent 的 system prompt 不是&amp;quot;写作文&amp;quot;，而是&amp;quot;立法&amp;quot;。写得宽松，它会偷工、越权、静默失败；写得死板，它又会在边界条件下死板到毫无价值。我写了几十个角色 prompt 之后，沉淀出 5 条戒律。每条都是血泪买来的——要么是某个 sub-agent 半夜悄悄 &lt;code>git push&lt;/code> 把 draft 推到了 main 分支，要么是某个 sub-agent 在 &lt;code>park-cli&lt;/code> 报错后假装成功返回了一串编的 token。&lt;/p>
+&lt;p>本文的参考样本，是我博客仓库里两份真实在用的 agent 规范：&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>/Users/bytedance/blog/.picode-scripts/writer-agent-spec.md&lt;/code>（写作规范）&lt;/li>
+&lt;li>&lt;code>/Users/bytedance/blog/.picode-scripts/agent-blog-handoff.md&lt;/code>（系统交付规范）&lt;/li>
+&lt;/ul>
+&lt;p>下面每一条戒律都会对照&amp;quot;坏样例 / 好样例&amp;quot;，坏样例是我真写过的初版，好样例是现在仓库里生效的版本。&lt;/p>
+&lt;hr>
+&lt;h2 id="戒律一单职责单入口">戒律一：单职责单入口&lt;/h2>
+&lt;p>一个角色 agent 只能被&amp;quot;一件事&amp;quot;召唤，也只对&amp;quot;一件事&amp;quot;负责。多任务入口是一切混乱的起点。&lt;/p>
+&lt;p>&lt;strong>坏样例&lt;/strong>：&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>你是博客助手。你可以帮用户写文章、审稿、发飞书、修 Hugo 配置、管理 git 分支。
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>根据用户意图决定做什么。
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这种 prompt 看起来&amp;quot;万能&amp;quot;，实际等于没写。agent 在判断意图时会偏向它认为&amp;quot;最安全&amp;quot;或&amp;quot;最简单&amp;quot;的任务——结果用户让它审稿，它返回了一份&amp;quot;看起来可以发表&amp;quot;的一句话评价就完事了。&lt;/p>
+&lt;p>&lt;strong>好样例&lt;/strong>（取自 writer-agent-spec.md 思路）：&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>你是博客写作 sub-agent。唯一任务：依选题产出 draft .md 文件放在
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>content/学习笔记/&amp;lt;topic&amp;gt;/&amp;lt;slug&amp;gt;.md，draft: true。
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>不做：审稿（交 Reviewer）、发飞书（交 Notifier）、git 操作（交总指挥）。
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>单职责的判断标准很简单——&lt;strong>prompt 第一段之后的所有&amp;quot;不做&amp;quot;清单，应该能让你一眼看出这个 agent 的边界&lt;/strong>。写不出清晰&amp;quot;不做&amp;quot;清单的角色，本身职责就没想清楚。&lt;/p></description></item></channel></rss>

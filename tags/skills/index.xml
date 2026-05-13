@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Skills on Min的博客</title><link>https://wm920.github.io/tags/skills/</link><description>Recent content in Skills on Min的博客</description><generator>Hugo</generator><language>zh-CN</language><lastBuildDate>Wed, 13 May 2026 11:00:00 +0800</lastBuildDate><atom:link href="https://wm920.github.io/tags/skills/index.xml" rel="self" type="application/rss+xml"/><item><title>PiCode 的 use_skill 按需加载机制：我为什么不把所有技能都开</title><link>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/picode-use-skill-lazy-load/</link><pubDate>Wed, 13 May 2026 11:00:00 +0800</pubDate><guid>https://wm920.github.io/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/code-agent/picode-use-skill-lazy-load/</guid><description>&lt;h2 id="起因一个我把所有-skill-都装上的想法被现实打脸">起因：一个「我把所有 skill 都装上」的想法，被现实打脸&lt;/h2>
+&lt;p>PiCode 装了很多飞书相关的 skill——我数了一下本机的 &lt;code>~/.picode/installed-skills/&lt;/code>：&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-fallback" data-lang="fallback">&lt;span style="display:flex;">&lt;span>$ ls ~/.picode/installed-skills/ | wc -l
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> 32
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>32 个 skill，每个 SKILL.md 动辄 300-800 行。我一度想「反正都装了，一次全加载进 system prompt，agent 就无所不能了」。写几个 feishu 操作任务之后，这个想法彻底破产。真正救我的是 PiCode 的&lt;strong>按需加载&lt;/strong>机制：默认只把 skill 的 &lt;code>name + description&lt;/code> 两行塞到 system prompt 里，完整 SKILL.md 得显式调 &lt;code>use_skill()&lt;/code> 才会被读进来。&lt;/p>
+&lt;p>这篇文章讲为什么这个设计是对的，以及什么时候你会忍不住想绕开它。&lt;/p>
+&lt;h2 id="预加载-vs-按需加载的-context-开销">预加载 vs 按需加载的 context 开销&lt;/h2>
+&lt;p>先做个粗估。我挑了几个本地有的 skill 实测行数（&lt;code>wc -l SKILL.md&lt;/code>）：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>skill&lt;/th>
+&lt;th style="text-align: right">SKILL.md 行数&lt;/th>
+&lt;th style="text-align: right">粗估 tokens&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>feishu-cli-bitable&lt;/td>
+&lt;td style="text-align: right">≈ 720&lt;/td>
+&lt;td style="text-align: right">≈ 8500&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>feishu-cli-write&lt;/td>
+&lt;td style="text-align: right">≈ 540&lt;/td>
+&lt;td style="text-align: right">≈ 6400&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>feishu-cli-sheet&lt;/td>
+&lt;td style="text-align: right">≈ 610&lt;/td>
+&lt;td style="text-align: right">≈ 7200&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>feishu-cli-board&lt;/td>
+&lt;td style="text-align: right">≈ 480&lt;/td>
+&lt;td style="text-align: right">≈ 5700&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>feishu-router&lt;/td>
+&lt;td style="text-align: right">≈ 220&lt;/td>
+&lt;td style="text-align: right">≈ 2600&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>ada3-pytest&lt;/td>
+&lt;td style="text-align: right">≈ 380&lt;/td>
+&lt;td style="text-align: right">≈ 4500&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>其他 26 个（均值）&lt;/td>
+&lt;td style="text-align: right">≈ 300&lt;/td>
+&lt;td style="text-align: right">≈ 3600 × 26 = 93600&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>全部预加载大约是 &lt;strong>12 万 tokens&lt;/strong>，Claude 3.5 / Opus 的 200k 上下文直接被吃掉 60%。这还没算用户代码、读进来的文件、对话历史。&lt;/p></description></item></channel></rss>
